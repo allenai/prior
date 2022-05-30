@@ -85,7 +85,7 @@ def load_dataset(
 
     start_dir = os.getcwd()
     res = requests.get(f"https://api.github.com/repos/{entity}/{dataset}/commits")
-    if res.status_code == 404:
+    if True or res.status_code == 404:
         # Try using private repo.
         if not os.path.exists(f"{os.environ['HOME']}/.git-credentials"):
             raise Exception(
@@ -128,27 +128,24 @@ def load_dataset(
             )
 
         # download the dataset
-        dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{dataset}"
+        dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{entity}/{dataset}"
         dataset_path = f"{dataset_dir}/{sha}"
         if os.path.exists(dataset_path):
             logging.info(f"Found dataset {dataset} at revision {revision} in {dataset_path}.")
+            os.chdir(dataset_path)
         else:
             logging.info(f"Downloading dataset {dataset} at revision {revision} to {dataset_path}.")
             os.makedirs(dataset_dir, exist_ok=True)
             subprocess.run(
-                args=["git", "clone", f"https://github.com/allenai/{dataset}.git", dataset_path],
-                stderr=subprocess.DEVNULL,
+                args=["git", "clone", f"https://github.com/{entity}/{dataset}.git", dataset_path],
                 stdout=subprocess.DEVNULL,
             )
             # change the subprocess working directory to the dataset directory
-            os.chdir(dataset_dir)
+            os.chdir(dataset_path)
             subprocess.run(
                 args=["git", "checkout", sha],
-                stderr=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
             )
-
-        os.chdir(dataset_path)
 
         out: Dict[str, Any] = {}
         exec(open(f"{dataset_path}/main.py").read(), out)
