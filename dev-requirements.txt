@@ -40,3 +40,9 @@ sphinx-autodoc-typehints
 
 # For parsing and comparing version numbers.
 packaging
+
+# Add your own dependencies to this file.
+tdqn
+PyGithub
+attrs
+
