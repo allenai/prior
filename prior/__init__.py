@@ -16,16 +16,16 @@ class Dataset:
 
     def __iter__(self):
         """Return an iterator over the dataset."""
-        for item in self._data:
+        for item in self.data:
             yield item
 
     def __len__(self) -> int:
         """Return the number of items in the dataset."""
-        return len(self._data)
+        return len(self.data)
 
     def __getitem__(self, index: int) -> Any:
         """Return the item at the given index."""
-        return self._data[index]
+        return self.data[index]
 
     def __repr__(self):
         """Return a string representation of the dataset."""
