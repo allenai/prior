@@ -2,7 +2,7 @@
 
  🐍 A Python package for distributing datasets from AI2's PRIOR team 
 
-## Installation
+### Installation
 
 Make sure you have [git-lfs](https://git-lfs.github.com/) installed, and then the `prior` package:
 
@@ -10,19 +10,17 @@ Make sure you have [git-lfs](https://git-lfs.github.com/) installed, and then th
 pip install prior
 ```
 
-## Example Usage
+### Example Usage
 
 To use a public Python dataset, simply run:
 
 ```python
 import prior
-dataset = prior.load_dataset(
-    "test-dataset", entity="mattdeitke", revision="main"
-)
+dataset = prior.load_dataset("test-dataset", entity="mattdeitke", revision="main")
 ```
 Here, `revision` can be either a tag, branch, or commit hash.
 
-## Private Datasets
+### Private Datasets
 
 If you want to use a private dataset, make sure you're either:
 1. Already logged into GitHub from the command line, and able to pull a private repo.
