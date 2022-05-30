@@ -232,18 +232,13 @@ def load_dataset(
             )
             logging.debug(f"Checked out {sha}")
 
-    if os.path.exists(dataset_path):
-        logging.debug(f"Found dataset {dataset} at revision {revision} in {dataset_path}.")
-        os.chdir(dataset_path)
+    logging.debug(f"Using dataset {dataset} at revision {revision} in {dataset_path}.")
+    os.chdir(dataset_path)
 
     out: Dict[str, Any] = {}
 
     # Necessary for GitHub Colab to work
-    subprocess.run(
-        args="git lfs fetch origin && git lfs checkout".split(" "),
-        stderr=None if debug_mode else subprocess.DEVNULL,
-        stdout=None if debug_mode else subprocess.DEVNULL,
-    )
+    os.system("git lfs fetch origin && git lfs checkout >> /dev/null")
 
     exec(open(f"{dataset_path}/main.py").read(), out)
     params = {}
