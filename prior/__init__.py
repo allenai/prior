@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 try:
     from typing import Literal
 except ImportError:
-    from typing_extensions import Literal
+    from typing_extensions import Literal  # type: ignore
 
 import requests
 from attrs import define
@@ -106,6 +106,7 @@ def load_dataset(
                     cache = json.load(f)
                 if revision in cache:
                     return cache[revision]
+        return None
 
     dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{entity}/{dataset}"
     os.makedirs(dataset_dir, exist_ok=True)

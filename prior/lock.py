@@ -26,8 +26,7 @@ if system() == "Windows":
             return
 
 else:
-    # type: ignore
-    import fcntl
+    import fcntl  # type: ignore
 
 
 class Lock:
