@@ -1,7 +1,7 @@
 import logging
 import os
 import subprocess
-from typing import Any, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import requests
 from attrs import define
@@ -103,13 +103,18 @@ def load_dataset(
         # main sha
         if revision is None:
             # get the latest commit
-            revision = repo.get_branch("main").commit.sha
+            f_revision: str = repo.get_branch("main").commit.sha
         elif any(revision == branch.name for branch in repo.get_branches()):
             # if revision is a branch name, get the commit_id of the branch
-            revision = repo.get_branch(revision).commit.sha
+            f_revision: str = repo.get_branch(revision).commit.sha
         elif any(revision == tag.name for tag in repo.get_tags()):
             # if revision is a tag, get the commit_id of the tag
-            revision = repo.get_tag(revision).commit.sha
+            f_revision: str = repo.get_tag(revision).commit.sha
+        else:
+            # if revision is a commit_id, use it
+            f_revision: str = revision
+
+        revision: str = f_revision
 
         # make sure the commit_id is valid
         try:
@@ -143,8 +148,9 @@ def load_dataset(
 
         os.chdir(dataset_path)
 
-        out = {}
+        out: Dict[str, Any] = {}
         exec(open(f"{dataset_path}/main.py").read(), out)
-        dataset = out["load_dataset"]()
+        dataset: DatasetDict = out["load_dataset"]()
         os.chdir(start_dir)
         return dataset
+    raise NotImplemented("Dataset not .")
