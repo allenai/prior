@@ -57,3 +57,7 @@ class DatasetDict:
             if self.test is None:
                 raise KeyError(key)
             return self.test
+
+
+def load_dataset(revision: str):
+    pass
