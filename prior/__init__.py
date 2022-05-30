@@ -123,6 +123,8 @@ def load_dataset(
         sha = cached_sha
         print(f"Using offline dataset {dataset} for revision {revision} with sha {sha}.")
     else:
+        if revision is None:
+            revision = "main"
         res = requests.get(
             f"https://api.github.com/repos/{entity}/{dataset}/commits?sha={revision}"
         )
@@ -152,20 +154,14 @@ def load_dataset(
             g = Github(token)
             repo = g.get_repo(f"{entity}/{dataset}")
 
-            # main sha
-            if revision is None:
-                # TODO: what to do if we exceed this quota...
-                # get the latest commit
-                sha = repo.get_branch("main").commit.sha
-            else:
-                # if revision is a commit_id, branch, or tag use it
-                try:
-                    sha = repo.get_commits(sha=revision)[0].sha
-                except GithubException:
-                    raise GithubException(
-                        f"Could not find revision={revision} in dataset={entity}/{dataset}."
-                        " Please pass a valid commit_id sha, branch name, or tag."
-                    )
+            # if revision is a commit_id, branch, or tag use it
+            try:
+                sha = repo.get_commits(sha=revision)[0].sha
+            except GithubException:
+                raise GithubException(
+                    f"Could not find revision={revision} in dataset={entity}/{dataset}."
+                    " Please pass a valid commit_id sha, branch name, or tag."
+                )
         elif res.status_code == 200:
             sha = res.json()[0]["sha"]
         else:
