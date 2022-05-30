@@ -117,6 +117,7 @@ def load_dataset(
 
     sha: str
     cached_sha: Optional[str]
+    token: str = ""
 
     if os.path.exists(f"{dataset_dir}/{revision}"):
         # If the dataset is already downloaded, use the cached sha.
@@ -144,6 +145,7 @@ def load_dataset(
             if (
                 not os.path.exists(f"{os.environ['HOME']}/.git-credentials")
                 and gh_auth_token is None
+                and "GITHUB_TOKEN" not in os.environ
             ):
                 # try using cache
                 cached_sha = None
@@ -163,17 +165,18 @@ def load_dataset(
                         "from the command line."
                     )
 
-            if gh_auth_token is None:
+            if gh_auth_token is not None:
+                # Treats gh_auth_token as a string
+                token = gh_auth_token.strip()  # type: ignore
+            elif os.environ.get("GITHUB_TOKEN") is not None:
+                token = os.environ["GITHUB_TOKEN"].strip()
+            else:
+                # look at ~/.git-credentials
                 with open(f"{os.environ['HOME']}/.git-credentials", "r") as f:
                     tokens = f.read()
                 token = next(token for token in tokens.split("\n") if token.endswith("github.com"))
                 token = token.split(":")[2]
                 token = token.split("@")[0]
-            if os.environ.get("GITHUB_TOKEN") is not None:
-                token = os.environ["GITHUB_TOKEN"].strip()
-            else:
-                # Treats gh_auth_token as a string
-                token = gh_auth_token.strip()  # type: ignore
 
             g = Github(token)
             repo = g.get_repo(f"{entity}/{dataset}")
@@ -208,10 +211,17 @@ def load_dataset(
             logging.debug(
                 f"Downloading dataset {dataset} at revision {revision} to {dataset_path}."
             )
+            token_prefix = f"{token}@" if token else ""
             subprocess.run(
-                args=["git", "clone", f"https://github.com/{entity}/{dataset}.git", dataset_path],
+                args=[
+                    "git",
+                    "clone",
+                    f"https://{token_prefix}github.com/{entity}/{dataset}.git",
+                    dataset_path,
+                ],
                 stdout=subprocess.DEVNULL,
             )
+            logging.debug(f"Downloaded dataset to {dataset_path}")
             # change the subprocess working directory to the dataset directory
             os.chdir(dataset_path)
             subprocess.run(
@@ -219,6 +229,7 @@ def load_dataset(
                 stderr=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
             )
+            logging.debug(f"Checked out {sha}")
 
     if os.path.exists(dataset_path):
         logging.debug(f"Found dataset {dataset} at revision {revision} in {dataset_path}.")
