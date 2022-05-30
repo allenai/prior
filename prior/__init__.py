@@ -114,6 +114,7 @@ def load_dataset(
     dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{entity}/{dataset}"
     os.makedirs(dataset_dir, exist_ok=True)
     start_dir = os.getcwd()
+    debug_mode = logging.getLevelName(logging.getLogger().level) == "DEBUG"
 
     sha: str
     cached_sha: Optional[str]
@@ -219,15 +220,15 @@ def load_dataset(
                     f"https://{token_prefix}github.com/{entity}/{dataset}.git",
                     dataset_path,
                 ],
-                stdout=subprocess.DEVNULL,
+                stdout=None if debug_mode else subprocess.DEVNULL,
             )
             logging.debug(f"Downloaded dataset to {dataset_path}")
             # change the subprocess working directory to the dataset directory
             os.chdir(dataset_path)
             subprocess.run(
                 args=["git", "checkout", sha],
-                stderr=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
+                stderr=None if debug_mode else subprocess.DEVNULL,
+                stdout=None if debug_mode else subprocess.DEVNULL,
             )
             logging.debug(f"Checked out {sha}")
 
@@ -240,8 +241,8 @@ def load_dataset(
     # Necessary for GitHub Colab to work
     subprocess.run(
         args="git lfs fetch origin && git lfs checkout".split(" "),
-        stderr=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
+        stderr=None if debug_mode else subprocess.DEVNULL,
+        stdout=None if debug_mode else subprocess.DEVNULL,
     )
 
     exec(open(f"{dataset_path}/main.py").read(), out)
