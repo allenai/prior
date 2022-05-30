@@ -122,6 +122,7 @@ def load_dataset(
         # If the dataset is already downloaded, use the cached sha.
         # NOTE: this will only occur if a commit id is passed in.
         # Otherwise, it tries to find the commit id.
+        # NOTE: Not sure how it handles amend commits...
         sha = revision
     elif offline:
         cached_sha = get_cached_sha()
