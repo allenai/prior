@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [v0.0.1.dev8](https://github.com/allenai/prior/releases/tag/v0.0.1.dev8) - 2022-05-30
+
 ## [v0.0.1.dev7](https://github.com/allenai/prior/releases/tag/v0.0.1.dev7) - 2022-05-30
 
 ## [v0.0.1.dev6](https://github.com/allenai/prior/releases/tag/v0.0.1.dev6) - 2022-05-30
