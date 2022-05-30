@@ -140,7 +140,9 @@ def load_dataset(
             # change the subprocess working directory to the dataset directory
             os.chdir(dataset_dir)
             subprocess.run(
-                args=["git", "checkout", sha], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                args=["git", "checkout", sha],
+                stderr=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
             )
 
         os.chdir(dataset_path)
