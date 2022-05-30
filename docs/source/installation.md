@@ -1,7 +1,7 @@
 Installation
 ============
 
-**prior** supports Python >= 3.7.
+**prior** supports Python >= 3.8.
 
 ## Installing with `pip`
 
