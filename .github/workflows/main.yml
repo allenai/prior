@@ -22,6 +22,8 @@ env:
 jobs:
   checks:
     name: Python ${{ matrix.python }} - ${{ matrix.task.name }}
+    env:
+      GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
     runs-on: [ubuntu-latest]
     timeout-minutes: 15
     strategy:
@@ -30,8 +32,6 @@ jobs:
         python: ["3.7", "3.10"]
         task:
           - name: Test
-            env:
-              GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
             run: |
               pytest -v --color=yes tests/
 
