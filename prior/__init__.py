@@ -126,6 +126,7 @@ def load_dataset(
         res = requests.get(
             f"https://api.github.com/repos/{entity}/{dataset}/commits?sha={revision}"
         )
+        logging.debug(f"Getting status code {res.status_code} for {revision}")
         if res.status_code == 404 or res.status_code == 403:
             # Try using private repo.
             if not os.path.exists(f"{os.environ['HOME']}/.git-credentials"):
