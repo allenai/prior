@@ -26,6 +26,7 @@ if system() == "Windows":
             return
 
 else:
+    # type: ignore
     import fcntl
 
 

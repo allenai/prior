@@ -110,14 +110,16 @@ def load_dataset(
     dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{entity}/{dataset}"
     os.makedirs(dataset_dir, exist_ok=True)
     start_dir = os.getcwd()
+    sha: str
     if offline:
-        sha = get_cached_sha()
-        if sha is None or not os.path.isdir(f"{dataset_dir}/{sha}"):
+        cached_sha = get_cached_sha()
+        if cached_sha is None or not os.path.isdir(f"{dataset_dir}/{cached_sha}"):
             raise ValueError(
                 f"Offline dataset {dataset} is not downloaded "
                 f"for revision {revision}. "
-                f" sha={sha}, dataset_dir={dataset_dir}"
+                f" cached_sha={cached_sha}, dataset_dir={dataset_dir}"
             )
+        sha = cached_sha
         print(f"Using offline dataset {dataset} for revision {revision} with sha {sha}.")
     else:
         res = requests.get(
@@ -149,7 +151,6 @@ def load_dataset(
             repo = g.get_repo(f"{entity}/{dataset}")
 
             # main sha
-            sha: str
             if revision is None:
                 # TODO: what to do if we exceed this quota...
                 # get the latest commit
