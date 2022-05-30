@@ -17,3 +17,5 @@ def test_failed_dataset():
         prior.load_dataset("dataset-doesnt-exist")
     except GithubException:
         pass
+    except Exception:
+        pass
