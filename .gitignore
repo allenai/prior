@@ -1,4 +1,5 @@
 tmp/
+temp*.py
 
 # build artifacts
 
