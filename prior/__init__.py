@@ -2,7 +2,13 @@ import json
 import logging
 import os
 import subprocess
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Optional
+
+# Literal was introduced in Python 3.8
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal
 
 import requests
 from attrs import define
