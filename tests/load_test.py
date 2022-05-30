@@ -1,4 +1,6 @@
 import os
+import time
+from multiprocessing import Pool
 
 from github import GithubException
 
@@ -13,6 +15,47 @@ def test_failed_dataset():
         pass
     except Exception:
         pass
+
+
+def load_ds(i):
+    dataset = prior.load_dataset("test-dataset", entity="mattdeitke")
+    assert len(dataset["train"]) == 1000
+    assert len(dataset["val"]) == 100
+    assert len(dataset["test"]) == 100
+
+
+def test_multiprocessing():
+    processes = 7
+
+    load_ds(0)  # download the dataset
+
+    # time cached versions
+    start = time.time()
+    load_ds(0)
+    end = time.time()
+    p1_time = end - start
+    print(f"p1 time: {p1_time}")
+
+    start = time.time()
+    for i in range(processes):
+        load_ds(i)
+    end = time.time()
+    seq_time = end - start
+    print(f"Sequential time: {seq_time}")
+
+    with Pool(processes=processes) as p:
+        # time cached versions
+        start = time.time()
+        p.map(load_ds, range(processes))
+        end = time.time()
+        p7_time = end - start
+        print(f"p7 time: {p7_time}")
+
+    # p7 time should be about as fast as p1 time, but just giving a buffer
+    assert p7_time < p1_time * 3
+
+    # sequential time should be about 7x slower than p1 time, but just giving a buffer
+    assert seq_time > p1_time * 4
 
 
 def test_dataset_tag():
