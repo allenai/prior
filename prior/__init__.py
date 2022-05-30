@@ -49,7 +49,8 @@ class DatasetDict:
     val: Optional[Dataset] = None
     test: Optional[Dataset] = None
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> Dataset:
+        """Return the dataset with the given split."""
         if key == "train":
             if self.train is None:
                 raise KeyError(key)
@@ -62,6 +63,8 @@ class DatasetDict:
             if self.test is None:
                 raise KeyError(key)
             return self.test
+        else:
+            raise KeyError(key)
 
 
 def load_dataset(
@@ -81,7 +84,7 @@ def load_dataset(
     """
 
     start_dir = os.getcwd()
-    res = requests.get(f"https://api.github.com/repos/allenai/{dataset}/commits")
+    res = requests.get(f"https://api.github.com/repos/{entity}/{dataset}/commits")
     if res.status_code == 404:
         # Try using private repo.
         if not os.path.exists(f"{os.environ['HOME']}/.git-credentials"):
