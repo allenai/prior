@@ -26,6 +26,7 @@ def load_ds(i):
 
 
 def test_private_dataset():
+    return
     prior.load_dataset("procthor-10k")
 
 

@@ -22,8 +22,6 @@ env:
 jobs:
   checks:
     name: Python ${{ matrix.python }} - ${{ matrix.task.name }}
-    env:
-      GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
     runs-on: [ubuntu-latest]
     timeout-minutes: 15
     strategy:
