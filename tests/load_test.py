@@ -25,6 +25,10 @@ def load_ds(i):
     assert len(dataset["test"]) == 100
 
 
+def test_private_dataset():
+    prior.load_dataset("procthor-10k")
+
+
 def test_multiprocessing():
     return
     processes = 7

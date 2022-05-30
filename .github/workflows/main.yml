@@ -30,6 +30,8 @@ jobs:
         python: ["3.7", "3.10"]
         task:
           - name: Test
+            env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             run: |
               pytest -v --color=yes tests/
 
