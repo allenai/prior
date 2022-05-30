@@ -140,16 +140,14 @@ def load_dataset(
             # change the subprocess working directory to the dataset directory
             os.chdir(dataset_dir)
             subprocess.run(
-                args=["git", "checkout", sha],
-                stderr=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
+                args=["git", "checkout", sha], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
             )
 
         os.chdir(dataset_path)
 
         out: Dict[str, Any] = {}
         exec(open(f"{dataset_path}/main.py").read(), out)
-        dataset: DatasetDict = out["load_dataset"]()
+        out_dataset: DatasetDict = out["load_dataset"]()
         os.chdir(start_dir)
-        return dataset
+        return out_dataset
     raise NotImplementedError("Dataset not .")
