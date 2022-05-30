@@ -78,7 +78,7 @@ class DatasetDict:
 
 def load_dataset(
     dataset: str,
-    revision: Optional[str] = None,
+    revision: str = "main",
     entity: str = "allenai",
     config: Any = None,
     offline: bool = False,
@@ -111,7 +111,9 @@ def load_dataset(
     dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{entity}/{dataset}"
     os.makedirs(dataset_dir, exist_ok=True)
     start_dir = os.getcwd()
+
     sha: str
+    cached_sha: Optional[str]
     if offline:
         cached_sha = get_cached_sha()
         if cached_sha is None or not os.path.isdir(f"{dataset_dir}/{cached_sha}"):
@@ -123,8 +125,6 @@ def load_dataset(
         sha = cached_sha
         print(f"Using offline dataset {dataset} for revision {revision} with sha {sha}.")
     else:
-        if revision is None:
-            revision = "main"
         res = requests.get(
             f"https://api.github.com/repos/{entity}/{dataset}/commits?sha={revision}"
         )
@@ -133,12 +133,12 @@ def load_dataset(
             # Try using private repo.
             if not os.path.exists(f"{os.environ['HOME']}/.git-credentials"):
                 # try using cache
-                candidate_sha = None
+                cached_sha = None
                 if res.status_code == 403:
-                    candidate_sha = get_cached_sha()
-                    if candidate_sha is not None:
+                    cached_sha = get_cached_sha()
+                    if cached_sha is not None:
                         print("Exceeded API limit, using cached sha.")
-                elif candidate_sha is None:
+                elif cached_sha is None:
                     raise Exception(
                         "Could not find ~/.git-credentials. "
                         "Please make sure you're logged into GitHub with the following command:\n"
