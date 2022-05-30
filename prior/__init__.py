@@ -236,6 +236,14 @@ def load_dataset(
         os.chdir(dataset_path)
 
     out: Dict[str, Any] = {}
+
+    # Necessary for GitHub Colab to work
+    subprocess.run(
+        args=["git lfs fetch origin && git lfs checkout".split(" ")],
+        stderr=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+    )
+
     exec(open(f"{dataset_path}/main.py").read(), out)
     params = {}
     if config is not None:
