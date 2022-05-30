@@ -84,8 +84,8 @@ def load_dataset(
     """
 
     start_dir = os.getcwd()
-    res = requests.get(f"https://api.github.com/repos/{entity}/{dataset}/commits")
-    if True or res.status_code == 404:
+    res = requests.get(f"https://api.github.com/repos/{entity}/{dataset}/commits?sha={revision}")
+    if res.status_code == 404:
         # Try using private repo.
         if not os.path.exists(f"{os.environ['HOME']}/.git-credentials"):
             raise Exception(
@@ -108,48 +108,43 @@ def load_dataset(
         if revision is None:
             # get the latest commit
             sha = repo.get_branch("main").commit.sha
-        elif any(revision == branch.name for branch in repo.get_branches()):
-            # if revision is a branch name, get the commit_id of the branch
-            sha = repo.get_branch(revision).commit.sha
-        elif any(revision == tag.name for tag in repo.get_tags()):
-            # if revision is a tag, get the commit_id of the tag
-            sha = repo.get_tag(revision).commit.sha
         else:
-            # if revision is a commit_id, use it
-            sha = revision
+            # if revision is a commit_id, branch, or tag use it
+            try:
+                sha = repo.get_commits(sha=revision)[0].sha
+            except GithubException:
+                raise GithubException(
+                    f"Could not find revision={revision} in dataset={entity}/{dataset}."
+                    " Please pass a valid commit_id sha, branch name, or tag."
+                )
+    elif res.status_code == 200:
+        sha = res.json()[0]["sha"]
+    else:
+        raise Exception(f"Unknown GitHub API status code: {res.status_code}")
 
-        # make sure the commit_id is valid
-        try:
-            repo.get_commit(sha)
-        except GithubException:
-            raise GithubException(
-                f"Could not find revision={revision} in dataset={entity}/{dataset}."
-                " Please pass a valid commit_id sha, branch name, or tag."
-            )
+    # download the dataset
+    dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{entity}/{dataset}"
+    dataset_path = f"{dataset_dir}/{sha}"
+    if os.path.exists(dataset_path):
+        logging.info(f"Found dataset {dataset} at revision {revision} in {dataset_path}.")
+        os.chdir(dataset_path)
+    else:
+        logging.info(f"Downloading dataset {dataset} at revision {revision} to {dataset_path}.")
+        os.makedirs(dataset_dir, exist_ok=True)
+        subprocess.run(
+            args=["git", "clone", f"https://github.com/{entity}/{dataset}.git", dataset_path],
+            stdout=subprocess.DEVNULL,
+        )
+        # change the subprocess working directory to the dataset directory
+        os.chdir(dataset_path)
+        subprocess.run(
+            args=["git", "checkout", sha],
+            stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+        )
 
-        # download the dataset
-        dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{entity}/{dataset}"
-        dataset_path = f"{dataset_dir}/{sha}"
-        if os.path.exists(dataset_path):
-            logging.info(f"Found dataset {dataset} at revision {revision} in {dataset_path}.")
-            os.chdir(dataset_path)
-        else:
-            logging.info(f"Downloading dataset {dataset} at revision {revision} to {dataset_path}.")
-            os.makedirs(dataset_dir, exist_ok=True)
-            subprocess.run(
-                args=["git", "clone", f"https://github.com/{entity}/{dataset}.git", dataset_path],
-                stdout=subprocess.DEVNULL,
-            )
-            # change the subprocess working directory to the dataset directory
-            os.chdir(dataset_path)
-            subprocess.run(
-                args=["git", "checkout", sha],
-                stdout=subprocess.DEVNULL,
-            )
-
-        out: Dict[str, Any] = {}
-        exec(open(f"{dataset_path}/main.py").read(), out)
-        out_dataset: DatasetDict = out["load_dataset"]()
-        os.chdir(start_dir)
-        return out_dataset
-    raise NotImplementedError("Dataset not .")
+    out: Dict[str, Any] = {}
+    exec(open(f"{dataset_path}/main.py").read(), out)
+    out_dataset: DatasetDict = out["load_dataset"]()
+    os.chdir(start_dir)
+    return out_dataset
