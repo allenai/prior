@@ -16,6 +16,9 @@ from github import Github, GithubException
 
 from .lock import LockEx
 
+gh_auth_token: Optional[str] = None
+"""The GitHub authentication token to use for requests."""
+
 
 @define
 class Dataset:
@@ -123,7 +126,7 @@ def load_dataset(
                 f" cached_sha={cached_sha}, dataset_dir={dataset_dir}"
             )
         sha = cached_sha
-        print(f"Using offline dataset {dataset} for revision {revision} with sha {sha}.")
+        logging.debug(f"Using offline dataset {dataset} for revision {revision} with sha {sha}.")
     else:
         res = requests.get(
             f"https://api.github.com/repos/{entity}/{dataset}/commits?sha={revision}"
@@ -131,25 +134,38 @@ def load_dataset(
         logging.debug(f"Getting status code {res.status_code} for {revision}")
         if res.status_code == 404 or res.status_code == 403:
             # Try using private repo.
-            if not os.path.exists(f"{os.environ['HOME']}/.git-credentials"):
+            if (
+                not os.path.exists(f"{os.environ['HOME']}/.git-credentials")
+                and gh_auth_token is None
+            ):
                 # try using cache
                 cached_sha = None
                 if res.status_code == 403:
                     cached_sha = get_cached_sha()
                     if cached_sha is not None:
-                        print("Exceeded API limit, using cached sha.")
+                        logging.debug("Exceeded API limit, using cached sha.")
                 elif cached_sha is None:
                     raise Exception(
-                        "Could not find ~/.git-credentials. "
-                        "Please make sure you're logged into GitHub with the following command:\n"
-                        "    git config --global credential.helper store"
+                        "Could not find dataset.\n"
+                        "If you're using a private repo, "
+                        "override the github auth token with:\n"
+                        "    import prior\n"
+                        "    prior.gh_auth_token = <token>\n"
+                        "Alternatively, you can set the environment variable with:\n"
+                        "    export GITHUB_TOKEN=<token>\n"
+                        "from the command line."
                     )
 
-            with open(f"{os.environ['HOME']}/.git-credentials", "r") as f:
-                tokens = f.read()
-            token = next(token for token in tokens.split("\n") if token.endswith("github.com"))
-            token = token.split(":")[2]
-            token = token.split("@")[0]
+            if gh_auth_token is None:
+                with open(f"{os.environ['HOME']}/.git-credentials", "r") as f:
+                    tokens = f.read()
+                token = next(token for token in tokens.split("\n") if token.endswith("github.com"))
+                token = token.split(":")[2]
+                token = token.split("@")[0]
+            if os.environ.get("GITHUB_TOKEN") is not None:
+                token = os.environ["GITHUB_TOKEN"].strip()
+            else:
+                token = gh_auth_token.strip()
 
             g = Github(token)
             repo = g.get_repo(f"{entity}/{dataset}")
@@ -181,7 +197,9 @@ def load_dataset(
     dataset_path = f"{dataset_dir}/{sha}"
     if not os.path.exists(dataset_path):
         with LockEx(f"{dataset_dir}/lock"):
-            print(f"Downloading dataset {dataset} at revision {revision} to {dataset_path}.")
+            logging.debug(
+                f"Downloading dataset {dataset} at revision {revision} to {dataset_path}."
+            )
             subprocess.run(
                 args=["git", "clone", f"https://github.com/{entity}/{dataset}.git", dataset_path],
                 stdout=subprocess.DEVNULL,
@@ -195,7 +213,7 @@ def load_dataset(
             )
 
     if os.path.exists(dataset_path):
-        print(f"Found dataset {dataset} at revision {revision} in {dataset_path}.")
+        logging.debug(f"Found dataset {dataset} at revision {revision} in {dataset_path}.")
         os.chdir(dataset_path)
 
     out: Dict[str, Any] = {}
