@@ -1,4 +1,3 @@
-#%%
 import logging
 import os
 import subprocess
@@ -6,7 +5,7 @@ from typing import Any, List, Literal, Optional
 
 import requests
 from attrs import define
-from github import Github
+from github import Github, GithubException
 
 
 @define
@@ -36,11 +35,11 @@ class Dataset:
     def __repr__(self):
         """Return a string representation of the dataset."""
         return (
-            f"DatasetSplit(\n"
+            "DatasetSplit(\n"
             f"    dataset={self.dataset},\n"
             f"    size={len(self.data)},\n"
             f"    split={self.split}\n"
-            f")"
+            ")"
         )
 
 
@@ -87,9 +86,9 @@ def load_dataset(
         # Try using private repo.
         if not os.path.exists(f"{os.environ['HOME']}/.git-credentials"):
             raise Exception(
-                f"Could not find ~/.git-credentials. "
-                f"Please make sure you're logged into GitHub with the following command:\n"
-                f"    git config --global credential.helper store"
+                "Could not find ~/.git-credentials. "
+                "Please make sure you're logged into GitHub with the following command:\n"
+                "    git config --global credential.helper store"
             )
 
         with open(f"{os.environ['HOME']}/.git-credentials", "r") as f:
@@ -115,9 +114,9 @@ def load_dataset(
         # make sure the commit_id is valid
         try:
             repo.get_commit(revision)
-        except:
-            raise Exception(
-                f"Could not find revision={revision} in dataset={dataset}."
+        except GithubException:
+            raise GithubException(
+                f"Could not find revision={revision} in dataset={entity}/{dataset}."
                 " Please pass a valid commit_id sha, branch name, or tag."
             )
 
@@ -149,4 +148,3 @@ def load_dataset(
         dataset = out["load_dataset"]()
         os.chdir(start_dir)
         return dataset
-
