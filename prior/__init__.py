@@ -87,57 +87,52 @@ def load_dataset(
 
     dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{entity}/{dataset}"
     os.makedirs(dataset_dir, exist_ok=True)
-    with LockEx(f"{dataset_dir}/lock"):
-        start_dir = os.getcwd()
-        res = requests.get(
-            f"https://api.github.com/repos/{entity}/{dataset}/commits?sha={revision}"
-        )
-        if res.status_code == 404 or res.status_code == 403:
-            # Try using private repo.
-            if not os.path.exists(f"{os.environ['HOME']}/.git-credentials"):
-                raise Exception(
-                    "Could not find ~/.git-credentials. "
-                    "Please make sure you're logged into GitHub with the following command:\n"
-                    "    git config --global credential.helper store"
+    start_dir = os.getcwd()
+    res = requests.get(f"https://api.github.com/repos/{entity}/{dataset}/commits?sha={revision}")
+    if res.status_code == 404 or res.status_code == 403:
+        # Try using private repo.
+        if not os.path.exists(f"{os.environ['HOME']}/.git-credentials"):
+            raise Exception(
+                "Could not find ~/.git-credentials. "
+                "Please make sure you're logged into GitHub with the following command:\n"
+                "    git config --global credential.helper store"
+            )
+
+        with open(f"{os.environ['HOME']}/.git-credentials", "r") as f:
+            tokens = f.read()
+        token = next(token for token in tokens.split("\n") if token.endswith("github.com"))
+        token = token.split(":")[2]
+        token = token.split("@")[0]
+
+        g = Github(token)
+        repo = g.get_repo(f"{entity}/{dataset}")
+
+        # main sha
+        sha: str
+        if revision is None:
+            # get the latest commit
+            sha = repo.get_branch("main").commit.sha
+        else:
+            # if revision is a commit_id, branch, or tag use it
+            try:
+                sha = repo.get_commits(sha=revision)[0].sha
+            except GithubException:
+                raise GithubException(
+                    f"Could not find revision={revision} in dataset={entity}/{dataset}."
+                    " Please pass a valid commit_id sha, branch name, or tag."
                 )
+    elif res.status_code == 200:
+        sha = res.json()[0]["sha"]
+    elif res.status_code == 403:
+        # TODO: try using cached sha
+        raise Exception("GitHub API rate limit exceeded. Please wait a minute and try again.")
+    else:
+        raise Exception(f"Unknown GitHub API status code: {res.status_code}")
 
-            with open(f"{os.environ['HOME']}/.git-credentials", "r") as f:
-                tokens = f.read()
-            token = next(token for token in tokens.split("\n") if token.endswith("github.com"))
-            token = token.split(":")[2]
-            token = token.split("@")[0]
-
-            g = Github(token)
-            repo = g.get_repo(f"{entity}/{dataset}")
-
-            # main sha
-            sha: str
-            if revision is None:
-                # get the latest commit
-                sha = repo.get_branch("main").commit.sha
-            else:
-                # if revision is a commit_id, branch, or tag use it
-                try:
-                    sha = repo.get_commits(sha=revision)[0].sha
-                except GithubException:
-                    raise GithubException(
-                        f"Could not find revision={revision} in dataset={entity}/{dataset}."
-                        " Please pass a valid commit_id sha, branch name, or tag."
-                    )
-        elif res.status_code == 200:
-            sha = res.json()[0]["sha"]
-        elif res.status_code == 403:
-            # TODO: try using cached sha
-            raise Exception("GitHub API rate limit exceeded. Please wait a minute and try again.")
-        else:
-            raise Exception(f"Unknown GitHub API status code: {res.status_code}")
-
-        # download the dataset
-        dataset_path = f"{dataset_dir}/{sha}"
-        if os.path.exists(dataset_path):
-            print(f"Found dataset {dataset} at revision {revision} in {dataset_path}.")
-            os.chdir(dataset_path)
-        else:
+    # download the dataset
+    dataset_path = f"{dataset_dir}/{sha}"
+    if not os.path.exists(dataset_path):
+        with LockEx(f"{dataset_dir}/lock"):
             print(f"Downloading dataset {dataset} at revision {revision} to {dataset_path}.")
             subprocess.run(
                 args=["git", "clone", f"https://github.com/{entity}/{dataset}.git", dataset_path],
@@ -151,8 +146,12 @@ def load_dataset(
                 stdout=subprocess.DEVNULL,
             )
 
-        out: Dict[str, Any] = {}
-        exec(open(f"{dataset_path}/main.py").read(), out)
-        out_dataset: DatasetDict = out["load_dataset"]()
-        os.chdir(start_dir)
-        return out_dataset
+    if os.path.exists(dataset_path):
+        print(f"Found dataset {dataset} at revision {revision} in {dataset_path}.")
+        os.chdir(dataset_path)
+
+    out: Dict[str, Any] = {}
+    exec(open(f"{dataset_path}/main.py").read(), out)
+    out_dataset: DatasetDict = out["load_dataset"]()
+    os.chdir(start_dir)
+    return out_dataset
