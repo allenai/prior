@@ -99,7 +99,6 @@ def load_dataset(
                 with open(f"{dataset_dir}/cache", "r") as f:
                     cache = json.load(f)
                 if revision in cache:
-                    print("Exceeded API limit, using cached sha.")
                     return cache[revision]
 
     dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{entity}/{dataset}"
@@ -109,8 +108,11 @@ def load_dataset(
         sha = get_cached_sha()
         if sha is None or not os.path.isdir(f"{dataset_dir}/{sha}"):
             raise ValueError(
-                f"Offline dataset {dataset} is not downloaded " f"for revision {revision}."
+                f"Offline dataset {dataset} is not downloaded "
+                f"for revision {revision}. "
+                f" sha={sha}, dataset_dir={dataset_dir}"
             )
+        print(f"Using offline dataset {dataset} for revision {revision} with sha {sha}.")
     else:
         res = requests.get(
             f"https://api.github.com/repos/{entity}/{dataset}/commits?sha={revision}"
@@ -122,6 +124,8 @@ def load_dataset(
                 candidate_sha = None
                 if res.status_code == 403:
                     candidate_sha = get_cached_sha()
+                    if candidate_sha is not None:
+                        print("Exceeded API limit, using cached sha.")
                 elif candidate_sha is None:
                     raise Exception(
                         "Could not find ~/.git-credentials. "
