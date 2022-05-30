@@ -1,71 +1,13 @@
 import logging
 import os
 import subprocess
-from platform import system
 from typing import Any, Dict, List, Literal, Optional
 
 import requests
 from attrs import define
 from github import Github, GithubException
 
-if system() == "Windows":
-
-    class fcntl:
-        LOCK_UN = 0
-        LOCK_SH = 0
-        LOCK_NB = 0
-        LOCK_EX = 0
-
-        @staticmethod
-        def fcntl(fd, op, arg=0):
-            return 0
-
-        @staticmethod
-        def ioctl(fd, op, arg=0, mutable_flag=True):
-            return 0 if mutable_flag else ""
-
-        @staticmethod
-        def flock(fd, op):
-            return
-
-        @staticmethod
-        def lockf(fd, operation, length=0, start=0, whence=0):
-            return
-
-else:
-    import fcntl
-
-
-class Lock:
-    def __init__(self, target, mode):
-        self._lock_file_path = target + ".lock"
-        self._lock_file = os.open(self._lock_file_path, os.O_RDWR | os.O_CREAT)
-        self.mode = mode
-
-    def lock(self):
-        fcntl.lockf(self._lock_file, self.mode)
-
-    def unlock(self):
-        fcntl.lockf(self._lock_file, fcntl.LOCK_UN)
-        os.close(self._lock_file)
-
-    def unlink(self):
-        os.unlink(self._lock_file_path)
-
-    def __enter__(self):
-        self.lock()
-
-    def __exit__(self, exception_type, exception_value, exception_traceback):
-        self.unlock()
-
-
-class LockEx(Lock):
-    def __init__(self, target, blocking=True):
-        mode = fcntl.LOCK_EX
-        if not blocking:
-            mode |= fcntl.LOCK_NB
-
-        super().__init__(target, mode)
+from .lock import LockEx
 
 
 @define
@@ -143,12 +85,14 @@ def load_dataset(
         A DatasetDict containing the loaded dataset.
     """
 
-    with LockEx(f"{entity}/{dataset}"):
+    dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{entity}/{dataset}"
+    os.makedirs(dataset_dir, exist_ok=True)
+    with LockEx(f"{dataset_dir}/lock"):
         start_dir = os.getcwd()
         res = requests.get(
             f"https://api.github.com/repos/{entity}/{dataset}/commits?sha={revision}"
         )
-        if res.status_code == 404:
+        if res.status_code == 404 or res.status_code == 403:
             # Try using private repo.
             if not os.path.exists(f"{os.environ['HOME']}/.git-credentials"):
                 raise Exception(
@@ -189,14 +133,12 @@ def load_dataset(
             raise Exception(f"Unknown GitHub API status code: {res.status_code}")
 
         # download the dataset
-        dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{entity}/{dataset}"
         dataset_path = f"{dataset_dir}/{sha}"
         if os.path.exists(dataset_path):
-            logging.info(f"Found dataset {dataset} at revision {revision} in {dataset_path}.")
+            print(f"Found dataset {dataset} at revision {revision} in {dataset_path}.")
             os.chdir(dataset_path)
         else:
-            logging.info(f"Downloading dataset {dataset} at revision {revision} to {dataset_path}.")
-            os.makedirs(dataset_dir, exist_ok=True)
+            print(f"Downloading dataset {dataset} at revision {revision} to {dataset_path}.")
             subprocess.run(
                 args=["git", "clone", f"https://github.com/{entity}/{dataset}.git", dataset_path],
                 stdout=subprocess.DEVNULL,
