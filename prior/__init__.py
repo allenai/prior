@@ -117,7 +117,13 @@ def load_dataset(
 
     sha: str
     cached_sha: Optional[str]
-    if offline:
+
+    if os.path.exists(f"{dataset_dir}/{revision}"):
+        # If the dataset is already downloaded, use the cached sha.
+        # NOTE: this will only occur if a commit id is passed in.
+        # Otherwise, it tries to find the commit id.
+        sha = revision
+    elif offline:
         cached_sha = get_cached_sha()
         if cached_sha is None or not os.path.isdir(f"{dataset_dir}/{cached_sha}"):
             raise ValueError(
