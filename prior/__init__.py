@@ -35,7 +35,7 @@ class Dataset:
     def __repr__(self):
         """Return a string representation of the dataset."""
         return (
-            "DatasetSplit(\n"
+            "Dataset(\n"
             f"    dataset={self.dataset},\n"
             f"    size={len(self.data)},\n"
             f"    split={self.split}\n"
