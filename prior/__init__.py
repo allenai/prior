@@ -172,7 +172,8 @@ def load_dataset(
             if os.environ.get("GITHUB_TOKEN") is not None:
                 token = os.environ["GITHUB_TOKEN"].strip()
             else:
-                token = gh_auth_token.strip()
+                # Treats gh_auth_token as a string
+                token = gh_auth_token.strip()  # type: ignore
 
             g = Github(token)
             repo = g.get_repo(f"{entity}/{dataset}")
