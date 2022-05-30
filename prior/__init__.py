@@ -239,7 +239,7 @@ def load_dataset(
 
     # Necessary for GitHub Colab to work
     subprocess.run(
-        args=["git lfs fetch origin && git lfs checkout".split(" ")],
+        args="git lfs fetch origin && git lfs checkout".split(" "),
         stderr=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
     )
