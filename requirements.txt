@@ -1,4 +1,4 @@
 # Add your own dependencies to this file.
-tdqn
+tqdm
 PyGithub
 attrs
