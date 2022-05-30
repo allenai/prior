@@ -1,6 +1,12 @@
+#%%
+import logging
+import os
+import subprocess
 from typing import Any, List, Literal, Optional
 
+import requests
 from attrs import define
+from github import Github
 
 
 @define
@@ -30,10 +36,10 @@ class Dataset:
     def __repr__(self):
         """Return a string representation of the dataset."""
         return (
-            f"DatasetSplit("
-            f"    dataset={self.dataset},"
-            f"    size={len(self.data)},"
-            f"    split={self.split}"
+            f"DatasetSplit(\n"
+            f"    dataset={self.dataset},\n"
+            f"    size={len(self.data)},\n"
+            f"    split={self.split}\n"
             f")"
         )
 
@@ -57,3 +63,90 @@ class DatasetDict:
             if self.test is None:
                 raise KeyError(key)
             return self.test
+
+
+def load_dataset(
+    dataset: str, revision: Optional[str] = None, entity: str = "allenai"
+) -> DatasetDict:
+    """Load the dataset from the given revision.
+
+    Args:
+        dataset: The name of the dataset to load.
+        revision: The git revision of the dataset to load. Can be specified as either
+            a commit id sha, tag, or branch. If None, the latest commit to main
+            will be used.
+        entity: The github organization or username that has the dataset.
+
+    Returns:
+        A DatasetDict containing the loaded dataset.
+    """
+
+    start_dir = os.getcwd()
+    res = requests.get(f"https://api.github.com/repos/allenai/{dataset}/commits")
+    if res.status_code == 404:
+        # Try using private repo.
+        if not os.path.exists(f"{os.environ['HOME']}/.git-credentials"):
+            raise Exception(
+                f"Could not find ~/.git-credentials. "
+                f"Please make sure you're logged into GitHub with the following command:\n"
+                f"    git config --global credential.helper store"
+            )
+
+        with open(f"{os.environ['HOME']}/.git-credentials", "r") as f:
+            tokens = f.read()
+        token = next(token for token in tokens.split("\n") if token.endswith("github.com"))
+        token = token.split(":")[2]
+        token = token.split("@")[0]
+
+        g = Github(token)
+        repo = g.get_repo(f"{entity}/{dataset}")
+
+        # main sha
+        if revision is None:
+            # get the latest commit
+            revision = repo.get_branch("main").commit.sha
+        elif any(revision == branch.name for branch in repo.get_branches()):
+            # if revision is a branch name, get the commit_id of the branch
+            revision = repo.get_branch(revision).commit.sha
+        elif any(revision == tag.name for tag in repo.get_tags()):
+            # if revision is a tag, get the commit_id of the tag
+            revision = repo.get_tag(revision).commit.sha
+
+        # make sure the commit_id is valid
+        try:
+            repo.get_commit(revision)
+        except:
+            raise Exception(
+                f"Could not find revision={revision} in dataset={dataset}."
+                " Please pass a valid commit_id sha, branch name, or tag."
+            )
+
+        # download the dataset
+        dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{dataset}"
+        dataset_path = f"{dataset_dir}/{revision}"
+        if os.path.exists(dataset_path):
+            logging.info(f"Found dataset {dataset} at revision {revision} in {dataset_path}.")
+        else:
+            logging.info(f"Downloading dataset {dataset} at revision {revision} to {dataset_path}.")
+            os.makedirs(dataset_dir, exist_ok=True)
+            subprocess.run(
+                args=["git", "clone", f"https://github.com/allenai/{dataset}.git", dataset_path],
+                stderr=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+            )
+            # change the subprocess working directory to the dataset directory
+            os.chdir(dataset_dir)
+            subprocess.run(
+                args=["git", "checkout", revision],
+                stderr=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+            )
+
+        os.chdir(dataset_path)
+
+        out = {}
+        exec(open(f"{dataset_path}/main.py").read(), out)
+        dataset = out["load_dataset"]()
+        os.chdir(start_dir)
+        return dataset
+

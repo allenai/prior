@@ -1,1 +1,4 @@
 # Add your own dependencies to this file.
+tdqn
+PyGithub
+attrs
