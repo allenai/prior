@@ -238,7 +238,7 @@ def load_dataset(
     out: Dict[str, Any] = {}
 
     # Necessary for GitHub Colab to work
-    os.system("git lfs fetch origin && git lfs checkout >> /dev/null")
+    os.system("git lfs fetch origin > /dev/null 2>&1 && git lfs checkout > /dev/null 2>&1")
 
     exec(open(f"{dataset_path}/main.py").read(), out)
     params = {}
