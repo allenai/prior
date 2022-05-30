@@ -119,6 +119,9 @@ def load_dataset(
                 )
     elif res.status_code == 200:
         sha = res.json()[0]["sha"]
+    elif res.status_code == 403:
+        # TODO: try using cached sha
+        raise Exception("GitHub API rate limit exceeded. Please wait a minute and try again.")
     else:
         raise Exception(f"Unknown GitHub API status code: {res.status_code}")
 
