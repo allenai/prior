@@ -1,7 +1,11 @@
+import glob
 import json
 import logging
 import os
+import platform
+import stat
 import subprocess
+import zipfile
 from typing import Any, Dict, List, Optional
 
 # Literal was introduced in Python 3.8
@@ -16,8 +20,119 @@ from github import Github, GithubException
 
 from .lock import LockEx
 
+DATASET_DIR = f"{os.environ['HOME']}/.prior/datasets"
+
 gh_auth_token: Optional[str] = None
 """The GitHub authentication token to use for requests."""
+
+
+_GIT_LFS_DOWNLOAD_TEMPLATE = (
+    "https://github.com/git-lfs/git-lfs/releases/download/v3.2.0/git-lfs-{os}-{arch}-v3.2.0.tar.gz"
+)
+_LFS_FILE_TO_SHA256 = {
+    "git-lfs-darwin-amd64-v3.2.0.zip": "c48c6a0c21d6fd286e54154fedae109bca9886caf520336cbdbbde1f209d8aff",
+    "git-lfs-darwin-arm64-v3.2.0.zip": "bf0fbe944e2543cacca74749476ff3671dff178b5853489c1ca92a2d1b04118e",
+    "git-lfs-freebsd-386-v3.2.0.tar.gz": "66ca0f662eeaefa2c191577f54d7d2797063f7f4e44c9130cf7186d8372df595",
+    "git-lfs-freebsd-amd64-v3.2.0.tar.gz": "776b41b526f1c879b2a106780c735f58c85b79bf97a835140d4c1aefc8c935b6",
+    "git-lfs-linux-386-v3.2.0.tar.gz": "73895460f9b3e213d10fb23948680681ab3e5f92e2fb0a74eb7830f6227a244e",
+    "git-lfs-linux-amd64-v3.2.0.tar.gz": "d6730b8036d9d99f872752489a331995930fec17b61c87c7af1945c65a482a50",
+    "git-lfs-linux-arm-v3.2.0.tar.gz": "3273b189fea5a403a2b6ab469071326ae4d97cb298364aa25e3b7b0e80340bad",
+    "git-lfs-linux-arm64-v3.2.0.tar.gz": "8186f0c0f69c30b55863d698e0a20cf79447a81df006b88221c2033d1e893638",
+    "git-lfs-linux-ppc64le-v3.2.0.tar.gz": "ff1eeaddde5d964d10ce607f039154fe033073f43b8ff5e7f4eb407293fe1be3",
+    "git-lfs-linux-s390x-v3.2.0.tar.gz": "16556f0b2e1097a69e75a6e1bcabfa7bfd2e7ee9b02fe6e5414e1038a223ab97",
+    "git-lfs-v3.2.0.tar.gz": "f8e6bbe043b97db8a5c16da7289e149a3fed9f4d4f11cffcc6e517c7870cd9e5",
+}
+
+
+def _get_git_lfs_cmd():
+    # Trying to install git-lfs locally to $DATASET_DIR/git-lfs-3.2.0/git-lfs if it's not already available
+
+    git_lfs_available = (
+        subprocess.run(
+            "git lfs".split(" "),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        ).returncode
+        == 0
+    )
+
+    if git_lfs_available:
+        return "git lfs"
+
+    cur_os = platform.system()
+
+    assert cur_os in ["Darwin", "Linux"], "Must be running on linux or macOS."
+
+    arch = (
+        subprocess.check_output(
+            "uname -m".split(" "),
+        )
+        .decode("utf-8")
+        .strip()
+    )
+
+    assert arch in ["arm64", "x86_64"]
+
+    if arch == "x86_64":
+        arch = "amd64"
+
+    download_url = _GIT_LFS_DOWNLOAD_TEMPLATE.format(os=cur_os.lower(), arch=arch.lower())
+    if cur_os == "Darwin":
+        download_url = download_url.replace(".tar.gz", ".zip")
+
+    git_lfs_path = f"{DATASET_DIR}/git-lfs-3.2.0/git-lfs"
+    if not os.path.exists(git_lfs_path):
+        cwd = os.getcwd()
+        os.chdir(DATASET_DIR)
+
+        download_path: Optional[str] = None
+        try:
+            subprocess.run(
+                f"wget -O {download_url.split('/')[-1]} {download_url}".split(),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+            download_paths = glob.glob("git-lfs*.zip") + glob.glob("git-lfs*.gz")
+
+            if len(download_paths) > 1:
+                raise IOError(
+                    f"Took many git-lfs downloads, please delete {download_paths} and try again."
+                )
+
+            download_path = download_paths[0]
+
+            found_sha = (
+                subprocess.check_output(f"sha256sum {download_path}".split())
+                .decode("utf-8")
+                .strip()
+                .split(" ")[0]
+            )
+            expected_sha = _LFS_FILE_TO_SHA256[os.path.basename(download_path)]
+
+            assert found_sha == expected_sha, (
+                f"sha-256 hashes do not match for {download_path}. Expected: {expected_sha}, found {found_sha}."
+                f" Was there an error when downloading?"
+            )
+
+            if download_path.endswith(".tar.gz"):
+                subprocess.check_output(f"tar xvfz {download_path}")
+            elif download_path.endswith(".zip"):
+                with zipfile.ZipFile(download_path, "r") as zip_ref:
+                    zip_ref.extractall(DATASET_DIR)
+            else:
+                raise NotImplementedError(f"Unexpected file type {download_path}")
+
+            assert os.path.exists(git_lfs_path)
+
+            os.chmod(git_lfs_path, os.stat(git_lfs_path).st_mode | stat.S_IEXEC)
+
+        finally:
+            if download_path is not None and os.path.exists(download_path):
+                os.remove(download_path)
+            os.chdir(cwd)
+
+    return git_lfs_path
 
 
 @define
@@ -111,7 +226,7 @@ def load_dataset(
                     return cache[revision]
         return None
 
-    dataset_dir = f"{os.environ['HOME']}/.prior/datasets/{entity}/{dataset}"
+    dataset_dir = f"{DATASET_DIR}/{entity}/{dataset}"
     os.makedirs(dataset_dir, exist_ok=True)
     start_dir = os.getcwd()
 
@@ -232,13 +347,37 @@ def load_dataset(
             )
             logging.debug(f"Checked out {sha}")
 
+            subprocess.run(
+                args="git restore --staged .".split(),
+                stderr=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+            )
+
     logging.debug(f"Using dataset {dataset} at revision {revision} in {dataset_path}.")
     os.chdir(dataset_path)
 
     out: Dict[str, Any] = {}
 
-    # Necessary for GitHub Colab to work
-    os.system("git lfs fetch origin > /dev/null 2>&1 && git lfs checkout > /dev/null 2>&1")
+    git_lfs_cmd = _get_git_lfs_cmd()
+
+    oldpath = os.environ["PATH"]
+    if git_lfs_cmd != "git lfs":
+        # Need to set the path so that git sees git-lfs below
+        os.environ["PATH"] = f'{os.environ["PATH"]}:{os.path.dirname(git_lfs_cmd)}'
+
+    out0 = subprocess.run(
+        f"{git_lfs_cmd} install".split(),
+        stdout=subprocess.DEVNULL,
+    )
+    out1 = subprocess.run(
+        f"{git_lfs_cmd} fetch origin".split(),
+        stdout=subprocess.DEVNULL,
+    )
+    out2 = subprocess.run(f"{git_lfs_cmd} checkout".split(), stdout=subprocess.DEVNULL)
+
+    assert out0.returncode == out1.returncode == out2.returncode == 0
+
+    os.environ["PATH"] = oldpath
 
     exec(open(f"{dataset_path}/main.py").read(), out)
     params = {}
