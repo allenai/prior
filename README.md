@@ -1,10 +1,10 @@
-# Prior
+# PRIOR
 
- 🐍 A Python package for distributing datasets from AI2's PRIOR team 
+ 🐍 A Python package for distributing resources from AI2's PRIOR team 
 
 ### Installation
 
-Make sure you have [git-lfs](https://git-lfs.github.com/) installed, and then the `prior` package:
+Install the `prior` package with pip:
 
 ```bash
 pip install prior
