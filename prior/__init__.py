@@ -47,92 +47,93 @@ _LFS_FILE_TO_SHA256 = {
 def _get_git_lfs_cmd():
     # Trying to install git-lfs locally to $DATASET_DIR/git-lfs-3.2.0/git-lfs if it's not already available
 
-    git_lfs_available = (
-        subprocess.run(
-            "git lfs".split(" "),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        ).returncode
-        == 0
-    )
-
-    if git_lfs_available:
-        return "git lfs"
-
-    cur_os = platform.system()
-
-    assert cur_os in ["Darwin", "Linux"], "Must be running on linux or macOS."
-
-    arch = (
-        subprocess.check_output(
-            "uname -m".split(" "),
-        )
-        .decode("utf-8")
-        .strip()
-    )
-
-    assert arch in ["arm64", "x86_64"]
-
-    if arch == "x86_64":
-        arch = "amd64"
-
-    download_url = _GIT_LFS_DOWNLOAD_TEMPLATE.format(os=cur_os.lower(), arch=arch.lower())
-    if cur_os == "Darwin":
-        download_url = download_url.replace(".tar.gz", ".zip")
-
-    git_lfs_path = f"{DATASET_DIR}/git-lfs-3.2.0/git-lfs"
-    if not os.path.exists(git_lfs_path):
-        cwd = os.getcwd()
-        os.chdir(DATASET_DIR)
-
-        download_path: Optional[str] = None
-        try:
+    with LockEx(f"{DATASET_DIR}/git-lfs-lock"):
+        git_lfs_available = (
             subprocess.run(
-                f"wget -O {download_url.split('/')[-1]} {download_url}".split(),
+                "git lfs".split(" "),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+            ).returncode
+            == 0
+        )
+
+        if git_lfs_available:
+            return "git lfs"
+
+        cur_os = platform.system()
+
+        assert cur_os in ["Darwin", "Linux"], "Must be running on linux or macOS."
+
+        arch = (
+            subprocess.check_output(
+                "uname -m".split(" "),
             )
+            .decode("utf-8")
+            .strip()
+        )
 
-            download_paths = glob.glob("git-lfs*.zip") + glob.glob("git-lfs*.gz")
+        assert arch in ["arm64", "x86_64"]
 
-            if len(download_paths) > 1:
-                raise IOError(
-                    f"Took many git-lfs downloads, please delete {download_paths} and try again."
+        if arch == "x86_64":
+            arch = "amd64"
+
+        download_url = _GIT_LFS_DOWNLOAD_TEMPLATE.format(os=cur_os.lower(), arch=arch.lower())
+        if cur_os == "Darwin":
+            download_url = download_url.replace(".tar.gz", ".zip")
+
+        git_lfs_path = f"{DATASET_DIR}/git-lfs-3.2.0/git-lfs"
+        if not os.path.exists(git_lfs_path):
+            cwd = os.getcwd()
+            os.chdir(DATASET_DIR)
+
+            download_path: Optional[str] = None
+            try:
+                subprocess.run(
+                    f"wget -O {download_url.split('/')[-1]} {download_url}".split(),
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 )
 
-            download_path = download_paths[0]
+                download_paths = glob.glob("git-lfs*.zip") + glob.glob("git-lfs*.gz")
 
-            found_sha = (
-                subprocess.check_output(f"sha256sum {download_path}".split())
-                .decode("utf-8")
-                .strip()
-                .split(" ")[0]
-            )
-            expected_sha = _LFS_FILE_TO_SHA256[os.path.basename(download_path)]
+                if len(download_paths) > 1:
+                    raise IOError(
+                        f"Took many git-lfs downloads, please delete {download_paths} and try again."
+                    )
 
-            assert found_sha == expected_sha, (
-                f"sha-256 hashes do not match for {download_path}. Expected: {expected_sha}, found {found_sha}."
-                f" Was there an error when downloading?"
-            )
+                download_path = download_paths[0]
 
-            if download_path.endswith(".tar.gz"):
-                subprocess.check_output(f"tar xvfz {download_path}".split())
-            elif download_path.endswith(".zip"):
-                with zipfile.ZipFile(download_path, "r") as zip_ref:
-                    zip_ref.extractall(DATASET_DIR)
-            else:
-                raise NotImplementedError(f"Unexpected file type {download_path}")
+                found_sha = (
+                    subprocess.check_output(f"sha256sum {download_path}".split())
+                    .decode("utf-8")
+                    .strip()
+                    .split(" ")[0]
+                )
+                expected_sha = _LFS_FILE_TO_SHA256[os.path.basename(download_path)]
 
-            assert os.path.exists(git_lfs_path)
+                assert found_sha == expected_sha, (
+                    f"sha-256 hashes do not match for {download_path}. Expected: {expected_sha}, found {found_sha}."
+                    f" Was there an error when downloading?"
+                )
 
-            os.chmod(git_lfs_path, os.stat(git_lfs_path).st_mode | stat.S_IEXEC)
+                if download_path.endswith(".tar.gz"):
+                    subprocess.check_output(f"tar xvfz {download_path}".split())
+                elif download_path.endswith(".zip"):
+                    with zipfile.ZipFile(download_path, "r") as zip_ref:
+                        zip_ref.extractall(DATASET_DIR)
+                else:
+                    raise NotImplementedError(f"Unexpected file type {download_path}")
 
-        finally:
-            if download_path is not None and os.path.exists(download_path):
-                os.remove(download_path)
-            os.chdir(cwd)
+                assert os.path.exists(git_lfs_path)
 
-    return git_lfs_path
+                os.chmod(git_lfs_path, os.stat(git_lfs_path).st_mode | stat.S_IEXEC)
+
+            finally:
+                if download_path is not None and os.path.exists(download_path):
+                    os.remove(download_path)
+                os.chdir(cwd)
+
+        return git_lfs_path
 
 
 @define
