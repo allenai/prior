@@ -116,7 +116,7 @@ def _get_git_lfs_cmd():
             )
 
             if download_path.endswith(".tar.gz"):
-                subprocess.check_output(f"tar xvfz {download_path}")
+                subprocess.check_output(f"tar xvfz {download_path}".split())
             elif download_path.endswith(".zip"):
                 with zipfile.ZipFile(download_path, "r") as zip_ref:
                     zip_ref.extractall(DATASET_DIR)
