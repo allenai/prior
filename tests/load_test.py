@@ -8,10 +8,11 @@ from github import GithubException
 import prior
 
 
-#def test_failed_dataset():
-#    """Test that a non-existant dataset raises an exception."""
-#    with pytest.raises(GithubException):
-#        prior.load_dataset("dataset-doesnt-exist")
+@pytest.mark.skip(reason="Not working with GitHub actions.")
+def test_failed_dataset():
+    """Test that a non-existant dataset raises an exception."""
+    with pytest.raises(GithubException):
+        prior.load_dataset("dataset-doesnt-exist")
 
 
 def load_ds(i):
