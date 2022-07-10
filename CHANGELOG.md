@@ -1,6 +1,9 @@
 ### Added
 
-Nothing!
+Two updates:
+
+- Adds a missing .split() call needed to run a bash command.
+- Adds a lock when downloading gif lfs so that multiple processes don't try to do this simultaneously.
 
 # Changelog
 
