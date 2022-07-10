@@ -112,7 +112,8 @@ def _get_git_lfs_cmd():
                 expected_sha = _LFS_FILE_TO_SHA256[os.path.basename(download_path)]
 
                 assert found_sha == expected_sha, (
-                    f"sha-256 hashes do not match for {download_path}. Expected: {expected_sha}, found {found_sha}."
+                    f"sha-256 hashes do not match for {download_path}."
+                    f" Expected: {expected_sha}, found {found_sha}."
                     f" Was there an error when downloading?"
                 )
 
