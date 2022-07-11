@@ -2,7 +2,7 @@
 
  🐍 A Python package for distributing resources from AI2's PRIOR team 
 
-### Installation
+## Installation
 
 Install the `prior` package with pip:
 
@@ -10,7 +10,17 @@ Install the `prior` package with pip:
 pip install prior
 ```
 
-### Example Usage
+## Datasets
+
+- ProcTHOR-10k [[GitHub]](https://github.com/allenai/procthor-10k)
+```python
+import prior
+prior.load_dataset("procthor-10k")
+```
+
+_More coming soon!_
+
+## Example Usage
 
 To use a public Python dataset, simply run:
 
@@ -20,7 +30,7 @@ dataset = prior.load_dataset("test-dataset", entity="mattdeitke", revision="main
 ```
 Here, `revision` can be either a tag, branch, or commit hash.
 
-### Private Datasets
+## Private Datasets
 
 If you want to use a private dataset, make sure you're either:
 1. Already logged into GitHub from the command line, and able to pull a private repo.
