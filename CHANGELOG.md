@@ -1,9 +1,6 @@
 ### Added
 
-Two updates:
-
-- Adds a missing .split() call needed to run a bash command.
-- Adds a lock when downloading gif lfs so that multiple processes don't try to do this simultaneously.
+Added a LazyJsonDataset class to the prior package to make the class serializable.
 
 # Changelog
 
@@ -13,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
+## [v0.0.1.dev24](https://github.com/allenai/prior/releases/tag/v0.0.1.dev24) - 2022-07-17
 
 ## [v0.0.1.dev21](https://github.com/allenai/prior/releases/tag/v0.0.1.dev21) - 2022-07-06
 
