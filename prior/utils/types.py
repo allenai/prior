@@ -73,6 +73,13 @@ class LazyJsonDataset(Dataset):
         """Return a string representation of the dataset."""
         return super().__str__()
 
+    def __iter__(self):
+        """Return an iterator over the dataset."""
+        for item in self.data:
+            if item not in self.cached_data:
+                self.cached_data[item] = json.loads(item)
+            yield self.cached_data[item]
+
 
 @define
 class DatasetDict:
