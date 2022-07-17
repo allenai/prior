@@ -1,4 +1,5 @@
 import os
+import pickle
 import time
 from multiprocessing import Pool
 
@@ -10,7 +11,7 @@ import prior
 
 @pytest.mark.skip(reason="Not working with GitHub actions.")
 def test_failed_dataset():
-    """Test that a non-existant dataset raises an exception."""
+    """Test that a non-existent dataset raises an exception."""
     with pytest.raises(GithubException):
         prior.load_dataset("dataset-doesnt-exist")
 
@@ -22,9 +23,9 @@ def load_ds(i):
     assert len(dataset["test"]) == 100
 
 
-def test_private_dataset():
-    return
-    prior.load_dataset("procthor-10k")
+def test_dataset_serialization():
+    dataset = prior.load_dataset("procthor-10k")
+    pickle.dumps(dataset)
 
 
 def test_multiprocessing():
@@ -63,7 +64,6 @@ def test_multiprocessing():
 
 
 def test_dataset_tag():
-    return
     dataset = prior.load_dataset("test-dataset", revision="0.0.1", entity="mattdeitke")
     assert all(x == 100 for x in dataset["train"])
     assert os.path.exists(
@@ -72,7 +72,6 @@ def test_dataset_tag():
 
 
 def test_dataset_branch():
-    return
     dataset = prior.load_dataset("test-dataset", revision="reverse", entity="mattdeitke")
     assert dataset["train"][0] == 999
     assert dataset["train"][-1] == 0
@@ -82,7 +81,6 @@ def test_dataset_branch():
 
 
 def test_dataset_commit_id():
-    return
     dataset = prior.load_dataset(
         "test-dataset", revision="950feaf63e60b7e55c723c21bde7eaf85a0f5bd7", entity="mattdeitke"
     )
@@ -94,7 +92,6 @@ def test_dataset_commit_id():
 
 
 def test_dataset_default_test():
-    return
     dataset = prior.load_dataset("test-dataset", entity="mattdeitke")
     assert all(x == -1 for x in dataset["train"])
     assert os.path.exists(
@@ -103,7 +100,6 @@ def test_dataset_default_test():
 
 
 def test_dataset_main_branch():
-    return
     dataset = prior.load_dataset("test-dataset", revision="main", entity="mattdeitke")
     assert all(x == -1 for x in dataset["train"])
     assert os.path.exists(
