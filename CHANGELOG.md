@@ -1,6 +1,6 @@
 ### Added
 
-Add `__iter__` to LazyJsonDataset.
+Bug fix with `__iter__` in LazyJsonDataset to use `cached_data`.
 
 # Changelog
 
