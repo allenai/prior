@@ -75,10 +75,10 @@ class LazyJsonDataset(Dataset):
 
     def __iter__(self):
         """Return an iterator over the dataset."""
-        for item in self.data:
-            if item not in self.cached_data:
-                self.cached_data[item] = json.loads(item)
-            yield self.cached_data[item]
+        for i, x in enumerate(self.data):
+            if i not in self.cached_data:
+                self.cached_data[i] = json.loads(x)
+            yield self.cached_data[i]
 
 
 @define
