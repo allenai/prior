@@ -138,8 +138,8 @@ def load_dataset(
     dataset: str,
     revision: str = "main",
     entity: str = "allenai",
-    config: Any = None,
     offline: bool = False,
+    **kwargs: Any,
 ) -> DatasetDict:
     """Load the dataset from the given revision.
 
@@ -149,9 +149,9 @@ def load_dataset(
             a commit id sha, tag, or branch. If None, the latest commit to main
             will be used.
         entity: The github organization or username that has the dataset.
-        config: Allows you to specify variants of a particular dataset (e.g., do you
-            want the variant with a locobot or a different agent?).
         offline: If True, don't attempt to download the dataset from github.
+        kwargs: Allows you to specify variants of a particular dataset (e.g., do you
+            want the variant with a locobot or a different agent?).
 
     Returns:
         A DatasetDict containing the loaded dataset.
@@ -320,9 +320,6 @@ def load_dataset(
     os.environ["PATH"] = oldpath
 
     exec(open(f"{dataset_path}/main.py").read(), out)
-    params = {}
-    if config is not None:
-        params["config"] = config
-    out_dataset: DatasetDict = out["load_dataset"](**params)
+    out_dataset: DatasetDict = out["load_dataset"](**kwargs)
     os.chdir(start_dir)
     return out_dataset
