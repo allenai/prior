@@ -259,67 +259,70 @@ def load_dataset(
                 cache[revision] = sha
                 json.dump(cache, f)
 
-    # download the dataset
-    dataset_path = f"{dataset_dir}/{sha}"
-    if not os.path.exists(dataset_path):
-        with LockEx(f"{dataset_dir}/lock"):
-            logging.debug(
-                f"Downloading dataset {dataset} at revision {revision} to {dataset_path}."
-            )
-            token_prefix = f"{token}@" if token else ""
-            subprocess.run(
-                args=[
-                    "git",
-                    "clone",
-                    f"https://{token_prefix}github.com/{entity}/{dataset}.git",
-                    dataset_path,
-                ],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            logging.debug(f"Downloaded dataset to {dataset_path}")
-            # change the subprocess working directory to the dataset directory
-            os.chdir(dataset_path)
-            subprocess.run(
-                args=["git", "checkout", sha],
-                stderr=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-            )
-            logging.debug(f"Checked out {sha}")
-
-            subprocess.run(
-                args="git restore --staged .".split(),
-                stderr=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-            )
-
-    logging.debug(f"Using dataset {dataset} at revision {revision} in {dataset_path}.")
-    os.chdir(dataset_path)
-
-    out: Dict[str, Any] = {}
-
     git_lfs_cmd = _get_git_lfs_cmd()
-
     oldpath = os.environ["PATH"]
-    if git_lfs_cmd != "git lfs":
-        # Need to set the path so that git sees git-lfs below
-        os.environ["PATH"] = f'{os.environ["PATH"]}:{os.path.dirname(git_lfs_cmd)}'
+    try:
+        # The below PATH setting needs to happen before running any git commands as otherwise git
+        # will not see the git-lfs download which causes all sorts of weird issues.
+        if git_lfs_cmd != "git lfs":
+            # Need to set the path so that git sees git-lfs below
+            os.environ["PATH"] = f'{os.environ["PATH"]}:{os.path.dirname(git_lfs_cmd)}'
 
-    out0 = subprocess.run(
-        f"{git_lfs_cmd} install".split(),
-        stdout=subprocess.DEVNULL,
-    )
-    out1 = subprocess.run(
-        f"{git_lfs_cmd} fetch origin".split(),
-        stdout=subprocess.DEVNULL,
-    )
-    out2 = subprocess.run(f"{git_lfs_cmd} checkout".split(), stdout=subprocess.DEVNULL)
+        # download the dataset
+        dataset_path = f"{dataset_dir}/{sha}"
+        if not os.path.exists(dataset_path):
+            with LockEx(f"{dataset_dir}/lock"):
+                logging.debug(
+                    f"Downloading dataset {dataset} at revision {revision} to {dataset_path}."
+                )
+                token_prefix = f"{token}@" if token else ""
+                subprocess.run(
+                    args=[
+                        "git",
+                        "clone",
+                        f"https://{token_prefix}github.com/{entity}/{dataset}.git",
+                        dataset_path,
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                logging.debug(f"Downloaded dataset to {dataset_path}")
+                # change the subprocess working directory to the dataset directory
+                os.chdir(dataset_path)
+                subprocess.run(
+                    args=["git", "checkout", sha],
+                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                )
+                logging.debug(f"Checked out {sha}")
 
-    assert out0.returncode == out1.returncode == out2.returncode == 0
+                subprocess.run(
+                    args="git restore --staged .".split(),
+                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                )
 
-    os.environ["PATH"] = oldpath
+        logging.debug(f"Using dataset {dataset} at revision {revision} in {dataset_path}.")
+        os.chdir(dataset_path)
 
-    exec(open(f"{dataset_path}/main.py").read(), out)
-    out_dataset: DatasetDict = out["load_dataset"](**kwargs)
-    os.chdir(start_dir)
+        out: Dict[str, Any] = {}
+
+        out0 = subprocess.run(
+            f"{git_lfs_cmd} install".split(),
+            stdout=subprocess.DEVNULL,
+        )
+        out1 = subprocess.run(
+            f"{git_lfs_cmd} fetch origin".split(),
+            stdout=subprocess.DEVNULL,
+        )
+        out2 = subprocess.run(f"{git_lfs_cmd} checkout".split(), stdout=subprocess.DEVNULL)
+
+        assert out0.returncode == out1.returncode == out2.returncode == 0
+
+        exec(open(f"{dataset_path}/main.py").read(), out)
+        out_dataset: DatasetDict = out["load_dataset"](**kwargs)
+        os.chdir(start_dir)
+    finally:
+        os.environ["PATH"] = oldpath
+
     return out_dataset
