@@ -11,13 +11,15 @@ from typing import Any, Dict, Optional
 import requests
 from github import Github, GithubException
 
+from prior.lock import LockEx
+
 # NOTE: These are unused in this file, but imported to other files.
 # So, leave them here.
 from prior.utils.types import Dataset, DatasetDict, LazyJsonDataset
 
-from .lock import LockEx
-
-DATASET_DIR = f"{os.environ['HOME']}/.prior/datasets"
+BASE_DIR = f"{os.environ['HOME']}/.prior"
+DATASET_DIR = f"{BASE_DIR}/datasets"
+MODEL_DIR = f"{BASE_DIR}/models"
 
 gh_auth_token: Optional[str] = None
 """The GitHub authentication token to use for requests."""
@@ -42,9 +44,10 @@ _LFS_FILE_TO_SHA256 = {
 
 
 def _get_git_lfs_cmd():
-    # Trying to install git-lfs locally to $DATASET_DIR/git-lfs-3.2.0/git-lfs if it's not already available
+    # Trying to install git-lfs locally to $BASE_DIR/git-lfs-3.2.0/git-lfs if
+    # it's not already available
 
-    with LockEx(f"{DATASET_DIR}/git-lfs-lock"):
+    with LockEx(f"{BASE_DIR}/git-lfs-lock"):
         git_lfs_available = (
             subprocess.run(
                 "git lfs".split(" "),
@@ -78,10 +81,10 @@ def _get_git_lfs_cmd():
         if cur_os == "Darwin":
             download_url = download_url.replace(".tar.gz", ".zip")
 
-        git_lfs_path = f"{DATASET_DIR}/git-lfs-3.2.0/git-lfs"
+        git_lfs_path = f"{BASE_DIR}/git-lfs-3.2.0/git-lfs"
         if not os.path.exists(git_lfs_path):
             cwd = os.getcwd()
-            os.chdir(DATASET_DIR)
+            os.chdir(BASE_DIR)
 
             download_path: Optional[str] = None
             try:
@@ -118,7 +121,7 @@ def _get_git_lfs_cmd():
                     subprocess.check_output(f"tar xvfz {download_path}".split())
                 elif download_path.endswith(".zip"):
                     with zipfile.ZipFile(download_path, "r") as zip_ref:
-                        zip_ref.extractall(DATASET_DIR)
+                        zip_ref.extractall(BASE_DIR)
                 else:
                     raise NotImplementedError(f"Unexpected file type {download_path}")
 
@@ -326,3 +329,217 @@ def load_dataset(
         os.environ["PATH"] = oldpath
 
     return out_dataset
+
+
+def load_model(
+    project: str,
+    model: str,
+    entity: str = "allenai",
+    revision: str = "main",
+    offline: bool = False,
+    **kwargs,
+) -> str:
+    """Load the dataset from the given revision.
+
+    Args:
+        dataset: The name of the dataset to load.
+        revision: The git revision of the dataset to load. Can be specified as either
+            a commit id sha, tag, or branch. If None, the latest commit to main
+            will be used.
+        entity: The github organization or username that has the dataset.
+        offline: If True, don't attempt to download the dataset from github.
+        kwargs: Allows you to specify variants of a particular dataset (e.g., do you
+            want the variant with a locobot or a different agent?).
+
+    Returns:
+        A DatasetDict containing the loaded dataset.
+    """
+
+    def get_cached_sha() -> Optional[str]:
+        if os.path.exists(f"{dataset_dir}/cache"):
+            with LockEx(f"{dataset_dir}/cache-lock"):
+                with open(f"{dataset_dir}/cache", "r") as f:
+                    cache = json.load(f)
+                if revision in cache:
+                    return cache[revision]
+        return None
+
+    dataset_dir = f"{MODEL_DIR}/{entity}/{project}"
+    os.makedirs(dataset_dir, exist_ok=True)
+    start_dir = os.getcwd()
+
+    sha: str
+    cached_sha: Optional[str]
+    token: str = ""
+
+    if os.path.exists(f"{dataset_dir}/{revision}"):
+        # If the dataset is already downloaded, use the cached sha.
+        # NOTE: this will only occur if a commit id is passed in.
+        # Otherwise, it tries to find the commit id.
+        # NOTE: Not sure how it handles amend commits...
+        sha = revision
+    elif offline:
+        cached_sha = get_cached_sha()
+        if cached_sha is None or not os.path.isdir(f"{dataset_dir}/{cached_sha}"):
+            raise ValueError(
+                f"Offline project {project} is not downloaded "
+                f"for revision {revision}. "
+                f" cached_sha={cached_sha}, dataset_dir={dataset_dir}"
+            )
+        sha = cached_sha
+        logging.debug(f"Using offline project {project} for revision {revision} with sha {sha}.")
+    else:
+        res = requests.get(
+            f"https://api.github.com/repos/{entity}/{project}/commits?sha={revision}"
+        )
+        logging.debug(f"Getting status code {res.status_code} for {revision}")
+        if res.status_code == 404 or res.status_code == 403:
+            # Try using private repo.
+            if (
+                not os.path.exists(f"{os.environ['HOME']}/.git-credentials")
+                and gh_auth_token is None
+                and "GITHUB_TOKEN" not in os.environ
+            ):
+                # try using cache
+                cached_sha = None
+                if res.status_code == 403:
+                    cached_sha = get_cached_sha()
+                    if cached_sha is not None:
+                        logging.debug("Exceeded API limit, using cached sha.")
+                elif cached_sha is None:
+                    raise Exception(
+                        "Could not find dataset.\n"
+                        "If you're using a private repo, "
+                        "override the github auth token with:\n"
+                        "    import prior\n"
+                        "    prior.gh_auth_token = <token>\n"
+                        "Alternatively, you can set the environment variable with:\n"
+                        "    export GITHUB_TOKEN=<token>\n"
+                        "from the command line."
+                    )
+
+            if gh_auth_token is not None:
+                # Treats gh_auth_token as a string
+                token = gh_auth_token.strip()  # type: ignore
+            elif os.environ.get("GITHUB_TOKEN") is not None:
+                token = os.environ["GITHUB_TOKEN"].strip()
+            else:
+                # look at ~/.git-credentials
+                with open(f"{os.environ['HOME']}/.git-credentials", "r") as f:
+                    tokens = f.read()
+                token = next(token for token in tokens.split("\n") if token.endswith("github.com"))
+                token = token.split(":")[2]
+                token = token.split("@")[0]
+
+            g = Github(token)
+            repo = g.get_repo(f"{entity}/{project}")
+
+            # if revision is a commit_id, branch, or tag use it
+            try:
+                sha = repo.get_commits(sha=revision)[0].sha
+            except GithubException:
+                raise GithubException(
+                    f"Could not find revision={revision} in model={entity}/{project}."
+                    " Please pass a valid commit_id sha, branch name, or tag."
+                )
+        elif res.status_code == 200:
+            sha = res.json()[0]["sha"]
+        else:
+            raise Exception(f"Unknown GitHub API status code: {res.status_code}")
+
+        with LockEx(f"{dataset_dir}/cache-lock"):
+            if os.path.exists(f"{dataset_dir}/cache"):
+                with open(f"{dataset_dir}/cache", "r") as f:
+                    cache = json.load(f)
+            else:
+                cache = {}
+            with open(f"{dataset_dir}/cache", "w") as f:
+                cache[revision] = sha
+                json.dump(cache, f)
+
+    git_lfs_cmd = _get_git_lfs_cmd()
+    oldpath = os.environ["PATH"]
+    try:
+        # The below PATH setting needs to happen before running any git commands as otherwise git
+        # will not see the git-lfs download which causes all sorts of weird issues.
+        if git_lfs_cmd != "git lfs":
+            # Need to set the path so that git sees git-lfs below
+            os.environ["PATH"] = f'{os.environ["PATH"]}:{os.path.dirname(git_lfs_cmd)}'
+
+        # download the dataset
+        dataset_path = f"{dataset_dir}/{sha}"
+        if not os.path.exists(dataset_path):
+            with LockEx(f"{dataset_dir}/lock"):
+                logging.debug(
+                    f"Downloading project {project} at revision {revision} to {dataset_path}."
+                )
+                token_prefix = f"{token}@" if token else ""
+
+                # using smudges avoid downloading all LFS files / weights
+                old_smudge_value = os.environ.get("GIT_LFS_SKIP_SMUDGE", None)
+                os.environ["GIT_LFS_SKIP_SMUDGE"] = "1"
+                subprocess.run(
+                    args=[
+                        "git",
+                        "clone",
+                        f"https://{token_prefix}github.com/{entity}/{project}.git",
+                        dataset_path,
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                if old_smudge_value is not None:
+                    os.environ["GIT_LFS_SKIP_SMUDGE"] = old_smudge_value
+
+                logging.debug(f"Downloaded dataset to {dataset_path}")
+                # change the subprocess working directory to the dataset directory
+                os.chdir(dataset_path)
+                subprocess.run(
+                    args=["git", "checkout", sha],
+                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                )
+                logging.debug(f"Checked out {sha}")
+
+                subprocess.run(
+                    args="git restore --staged .".split(),
+                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                )
+
+        logging.debug(f"Using project {project} at revision {revision} in {dataset_path}.")
+        os.chdir(dataset_path)
+
+        out: Dict[str, Any] = {}
+
+        with open("models.json", "r") as f:
+            models = json.load(f)
+            if model not in models:
+                raise ValueError(f"Model ({model}) not found in {models.keys()}")
+
+        out0 = subprocess.run(
+            f"{git_lfs_cmd} install".split(),
+            stdout=subprocess.DEVNULL,
+        )
+        out1 = subprocess.run(
+            f"{git_lfs_cmd} fetch origin --include {models[model]}".split(),
+            stdout=subprocess.DEVNULL,
+        )
+        out2 = subprocess.run(
+            f"{git_lfs_cmd} checkout".split(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+
+        assert out0.returncode == out1.returncode == out2.returncode == 0
+
+        exec(open(f"{dataset_path}/main.py").read(), out)
+        model_path: DatasetDict = out["load_model"](model=model, **kwargs)
+        os.chdir(start_dir)
+    finally:
+        os.environ["PATH"] = oldpath
+
+    return model_path
+
+
+if __name__ == "__main__":
+    out = load_model("procthor-models", "10-house-ablation")
+    print(out)
