@@ -6,7 +6,7 @@ import platform
 import stat
 import subprocess
 import zipfile
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import requests
 from github import Github, GithubException
@@ -137,7 +137,9 @@ def _get_git_lfs_cmd():
         return git_lfs_path
 
 
-def _clone_repo(base_dir: str, entity: str, project: str, revision: str, offline: bool) -> None:
+def _clone_repo(
+    base_dir: str, entity: str, project: str, revision: str, offline: bool
+) -> Tuple[str, str]:
     def get_cached_sha() -> Optional[str]:
         if os.path.exists(f"{project_dir}/cache"):
             with LockEx(f"{project_dir}/cache-lock"):
@@ -445,7 +447,7 @@ def load_model(
 
         out: Dict[str, Any] = {}
         exec(open(f"{models_path}/main.py").read(), out)
-        model_path: DatasetDict = out["load_model"](model=model, **kwargs)
+        model_path: str = out["load_model"](model=model, **kwargs)
         os.chdir(start_dir)
     finally:
         os.environ["PATH"] = oldpath
