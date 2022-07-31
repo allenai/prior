@@ -137,24 +137,24 @@ def _get_git_lfs_cmd():
         return git_lfs_path
 
 
-def _clone_repo(entity: str, project: str, revision: str, offline: bool) -> None:
+def _clone_repo(base_dir: str, entity: str, project: str, revision: str, offline: bool) -> None:
     def get_cached_sha() -> Optional[str]:
-        if os.path.exists(f"{dataset_dir}/cache"):
-            with LockEx(f"{dataset_dir}/cache-lock"):
-                with open(f"{dataset_dir}/cache", "r") as f:
+        if os.path.exists(f"{project_dir}/cache"):
+            with LockEx(f"{project_dir}/cache-lock"):
+                with open(f"{project_dir}/cache", "r") as f:
                     cache = json.load(f)
                 if revision in cache:
                     return cache[revision]
         return None
 
-    dataset_dir = f"{DATASET_DIR}/{entity}/{project}"
-    os.makedirs(dataset_dir, exist_ok=True)
+    project_dir = f"{base_dir}/{entity}/{project}"
+    os.makedirs(project_dir, exist_ok=True)
 
     sha: str
     cached_sha: Optional[str]
     token: str = ""
 
-    if os.path.exists(f"{dataset_dir}/{revision}"):
+    if os.path.exists(f"{project_dir}/{revision}"):
         # If the dataset is already downloaded, use the cached sha.
         # NOTE: this will only occur if a commit id is passed in.
         # Otherwise, it tries to find the commit id.
@@ -162,11 +162,11 @@ def _clone_repo(entity: str, project: str, revision: str, offline: bool) -> None
         sha = revision
     elif offline:
         cached_sha = get_cached_sha()
-        if cached_sha is None or not os.path.isdir(f"{dataset_dir}/{cached_sha}"):
+        if cached_sha is None or not os.path.isdir(f"{project_dir}/{cached_sha}"):
             raise ValueError(
                 f"Offline project {project} is not downloaded "
                 f"for revision {revision}. "
-                f" cached_sha={cached_sha}, dataset_dir={dataset_dir}"
+                f" cached_sha={cached_sha}, project_dir={project_dir}"
             )
         sha = cached_sha
         logging.debug(f"Using offline project {project} for revision {revision} with sha {sha}.")
@@ -229,13 +229,13 @@ def _clone_repo(entity: str, project: str, revision: str, offline: bool) -> None
         else:
             raise Exception(f"Unknown GitHub API status code: {res.status_code}")
 
-        with LockEx(f"{dataset_dir}/cache-lock"):
-            if os.path.exists(f"{dataset_dir}/cache"):
-                with open(f"{dataset_dir}/cache", "r") as f:
+        with LockEx(f"{project_dir}/cache-lock"):
+            if os.path.exists(f"{project_dir}/cache"):
+                with open(f"{project_dir}/cache", "r") as f:
                     cache = json.load(f)
             else:
                 cache = {}
-            with open(f"{dataset_dir}/cache", "w") as f:
+            with open(f"{project_dir}/cache", "w") as f:
                 cache[revision] = sha
                 json.dump(cache, f)
 
@@ -267,7 +267,9 @@ def load_dataset(
 
     start_dir = os.getcwd()
     project_dir = f"{DATASET_DIR}/{entity}/{dataset}"
-    sha, token = _clone_repo(entity=entity, project=dataset, revision=revision, offline=offline)
+    sha, token = _clone_repo(
+        base_dir=DATASET_DIR, entity=entity, project=dataset, revision=revision, offline=offline
+    )
 
     git_lfs_cmd = _get_git_lfs_cmd()
     oldpath = os.environ["PATH"]
@@ -363,7 +365,9 @@ def load_model(
 
     start_dir = os.getcwd()
     project_dir = f"{MODEL_DIR}/{entity}/{project}"
-    sha, token = _clone_repo(entity=entity, project=project, revision=revision, offline=offline)
+    sha, token = _clone_repo(
+        base_dir=MODEL_DIR, entity=entity, project=project, revision=revision, offline=offline
+    )
 
     git_lfs_cmd = _get_git_lfs_cmd()
     oldpath = os.environ["PATH"]
