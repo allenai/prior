@@ -350,14 +350,16 @@ def load_model(
     """Load the dataset from the given revision.
 
     Args:
-        dataset: The name of the dataset to load.
+        project: The name of the project to load (e.g., "procthor-models").
+            This is the name of the GitHub repository.
+        model: The name of the model to load. Names are specified as the keys
+            within the project's models.json file.
         revision: The git revision of the dataset to load. Can be specified as either
             a commit id sha, tag, or branch. If None, the latest commit to main
             will be used.
         entity: The github organization or username that has the dataset.
         offline: If True, don't attempt to download the dataset from github.
-        kwargs: Allows you to specify variants of a particular dataset (e.g., do you
-            want the variant with a locobot or a different agent?).
+        kwargs: Allows you to specify variants of a particular model.
 
     Returns:
         A DatasetDict containing the loaded dataset.
