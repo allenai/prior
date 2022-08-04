@@ -1,5 +1,5 @@
 import json
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Sequence
 
 # Literal was introduced in Python 3.8
 try:
@@ -43,6 +43,14 @@ class Dataset:
             f"    size={len(self.data)},\n"
             f"    split={self.split}\n"
             ")"
+        )
+
+    def select(self, indices: Sequence[int]) -> "Dataset":
+        """Return a new dataset containing only the given indices."""
+        return Dataset(
+            data=[self.data[i] for i in indices],
+            dataset=self.dataset,
+            split=self.split,
         )
 
 
