@@ -1,5 +1,5 @@
 import json
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Sequence
 
 # Literal was introduced in Python 3.8
 try:
@@ -45,6 +45,15 @@ class Dataset:
             ")"
         )
 
+    def select(self, indices: Sequence[int]) -> "Dataset":
+        """Return a new dataset containing only the given indices."""
+        # ignoring type checker due to mypy bug with attrs
+        return Dataset(
+            data=[self.data[i] for i in indices],
+            dataset=self.dataset,
+            split=self.split,
+        )  # type: ignore
+
 
 @define
 class LazyJsonDataset(Dataset):
@@ -79,6 +88,15 @@ class LazyJsonDataset(Dataset):
             if i not in self.cached_data:
                 self.cached_data[i] = json.loads(x)
             yield self.cached_data[i]
+
+    def select(self, indices: Sequence[int]) -> "Dataset":
+        """Return a new dataset containing only the given indices."""
+        # ignoring type checker due to mypy bug with attrs
+        return LazyJsonDataset(
+            data=[self.data[i] for i in indices],
+            dataset=self.dataset,
+            split=self.split,
+        )  # type: ignore
 
 
 @define
