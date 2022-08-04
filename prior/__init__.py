@@ -149,7 +149,7 @@ def _clone_repo(
                     return cache[revision]
         return None
 
-    project_dir = f"{base_dir}/{entity}/{project}"
+    project_dir = os.path.join(base_dir, entity, project)
     os.makedirs(project_dir, exist_ok=True)
 
     sha: str
@@ -268,7 +268,7 @@ def load_dataset(
     """
 
     start_dir = os.getcwd()
-    project_dir = f"{DATASET_DIR}/{entity}/{dataset}"
+    project_dir = os.path.join(DATASET_DIR, entity, dataset)
     sha, token = _clone_repo(
         base_dir=DATASET_DIR, entity=entity, project=dataset, revision=revision, offline=offline
     )
@@ -368,7 +368,7 @@ def load_model(
     """
 
     start_dir = os.getcwd()
-    project_dir = f"{MODEL_DIR}/{entity}/{project}"
+    project_dir = os.path.join(MODEL_DIR, entity, project)
     sha, token = _clone_repo(
         base_dir=MODEL_DIR, entity=entity, project=project, revision=revision, offline=offline
     )
