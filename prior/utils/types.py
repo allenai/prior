@@ -47,10 +47,11 @@ class Dataset:
 
     def select(self, indices: Sequence[int]) -> "Dataset":
         """Return a new dataset containing only the given indices."""
+        # ignoring type checker due to mypy bug with attrs
         return Dataset(
-            data=[self.data[i] for i in indices],
-            dataset=self.dataset,
-            split=self.split,
+            data=[self.data[i] for i in indices],  # type: ignore
+            dataset=self.dataset,  # type: ignore
+            split=self.split,  # type: ignore
         )
 
 
