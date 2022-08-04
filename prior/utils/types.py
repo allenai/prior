@@ -49,10 +49,10 @@ class Dataset:
         """Return a new dataset containing only the given indices."""
         # ignoring type checker due to mypy bug with attrs
         return Dataset(
-            data=[self.data[i] for i in indices],  # type: ignore
-            dataset=self.dataset,  # type: ignore
-            split=self.split,  # type: ignore
-        )
+            data=[self.data[i] for i in indices],
+            dataset=self.dataset,
+            split=self.split,
+        )  # type: ignore
 
 
 @define
@@ -88,6 +88,15 @@ class LazyJsonDataset(Dataset):
             if i not in self.cached_data:
                 self.cached_data[i] = json.loads(x)
             yield self.cached_data[i]
+
+    def select(self, indices: Sequence[int]) -> "Dataset":
+        """Return a new dataset containing only the given indices."""
+        # ignoring type checker due to mypy bug with attrs
+        return LazyJsonDataset(
+            data=[self.data[i] for i in indices],
+            dataset=self.dataset,
+            split=self.split,
+        )  # type: ignore
 
 
 @define
