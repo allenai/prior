@@ -140,7 +140,7 @@ def _get_git_lfs_cmd():
 def _clone_repo(
     base_dir: str, entity: str, project: str, revision: str, offline: bool
 ) -> Tuple[str, str]:
-    def get_cached_sha() -> Optional[str]:
+    def get_cached_sha(project_dir: str) -> Optional[str]:
         if os.path.exists(f"{project_dir}/cache"):
             with LockEx(f"{project_dir}/cache-lock"):
                 with open(f"{project_dir}/cache", "r") as f:
@@ -163,7 +163,7 @@ def _clone_repo(
         # NOTE: Not sure how it handles amend commits...
         sha = revision
     elif offline:
-        cached_sha = get_cached_sha()
+        cached_sha = get_cached_sha(project_dir=project_dir)
         if cached_sha is None or not os.path.isdir(f"{project_dir}/{cached_sha}"):
             raise ValueError(
                 f"Offline project {project} is not downloaded "
@@ -187,7 +187,7 @@ def _clone_repo(
                 # try using cache
                 cached_sha = None
                 if res.status_code == 403:
-                    cached_sha = get_cached_sha()
+                    cached_sha = get_cached_sha(project_dir=project_dir)
                     if cached_sha is not None:
                         logging.debug("Exceeded API limit, using cached sha.")
                 elif cached_sha is None:
