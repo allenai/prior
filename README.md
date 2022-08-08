@@ -18,7 +18,19 @@ import prior
 prior.load_dataset("procthor-10k")
 ```
 
-_More coming soon!_
+- Object Nav Evaluation [[GitHub]](https://github.com/allenai/object-nav-eval)
+```python
+import prior
+prior.load_dataset("object-nav-eval")
+```
+
+## Models
+
+- ProcTHOR Models [[GitHub]](https://github.com/allenai/procthor-models)
+```python
+import prior
+prior.load_model(project="procthor-models", model="object-nav-pretraining")
+```
 
 ## Example Usage
 
