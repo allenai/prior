@@ -1,5 +1,5 @@
 import json
-from typing import Any, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 # Literal was introduced in Python 3.8
 try:
@@ -67,7 +67,7 @@ class LazyJsonDataset(Dataset):
         self, data: List[Any], dataset: str, split: Literal["train", "val", "test"]
     ) -> None:
         super().__init__(data, dataset, split)
-        self.cached_data = {}
+        self.cached_data: Dict[int, Union[list, dict]] = {}
 
     def __getitem__(self, index: int) -> Any:
         """Return the item at the given index."""
