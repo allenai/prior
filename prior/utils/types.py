@@ -7,20 +7,21 @@ try:
 except ImportError:
     from typing_extensions import Literal  # type: ignore
 
-from attr import field
-from attrs import define
 
-
-@define
 class Dataset:
-    data: List[Any]
-    """The entries in the dataset."""
+    def __init__(
+        self, data: List[Any], dataset: str, split: Literal["train", "val", "test"]
+    ) -> None:
+        """Initialize a dataset split.
 
-    dataset: str
-    """The split of the dataset."""
-
-    split: Literal["train", "val", "test"]
-    """The split of the dataset."""
+        Args:
+            data: The data of the dataset split.
+            dataset: The name of the dataset.
+            split: The name of the dataset split.
+        """
+        self.data = data
+        self.dataset = dataset
+        self.split = split
 
     def __iter__(self):
         """Return an iterator over the dataset."""
@@ -45,6 +46,10 @@ class Dataset:
             ")"
         )
 
+    def __str__(self):
+        """Return a string representation of the dataset."""
+        return self.__repr__()
+
     def select(self, indices: Sequence[int]) -> "Dataset":
         """Return a new dataset containing only the given indices."""
         # ignoring type checker due to mypy bug with attrs
@@ -55,13 +60,13 @@ class Dataset:
         )  # type: ignore
 
 
-@define
 class LazyJsonDataset(Dataset):
     """Lazily load the json house data."""
 
-    cached_data: dict = field(init=False)
-
-    def __attrs_post_init__(self):
+    def __init__(
+        self, data: List[Any], dataset: str, split: Literal["train", "val", "test"]
+    ) -> None:
+        super().__init__(data, dataset, split)
         self.cached_data = {}
 
     def __getitem__(self, index: int) -> Any:
@@ -99,14 +104,18 @@ class LazyJsonDataset(Dataset):
         )  # type: ignore
 
 
-@define
 class DatasetDict:
-    train: Optional[Dataset] = None
-    val: Optional[Dataset] = None
-    test: Optional[Dataset] = None
+    def __init__(
+        self,
+        train: Optional[Dataset] = None,
+        val: Optional[Dataset] = None,
+        test: Optional[Dataset] = None,
+    ) -> None:
+        self.train = train
+        self.val = val
+        self.test = test
 
-    def __getitem__(self, key: str) -> Dataset:
-        """Return the dataset with the given split."""
+    def __getitem__(self, key: str) -> Any:
         if key == "train":
             if self.train is None:
                 raise KeyError(key)
@@ -121,3 +130,17 @@ class DatasetDict:
             return self.test
         else:
             raise KeyError(key)
+
+    def __repr__(self):
+        """Return a string representation of the dataset."""
+        return (
+            "DatasetDict(\n"
+            f"    train={self.train},\n"
+            f"    val={self.val},\n"
+            f"    test={self.test}\n"
+            ")"
+        )
+
+    def __str__(self):
+        """Return a string representation of the dataset."""
+        return self.__repr__()
