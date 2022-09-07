@@ -44,4 +44,3 @@ packaging
 # Add your own dependencies to this file.
 tqdm
 PyGithub
-attrs
