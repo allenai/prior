@@ -1,4 +1,5 @@
 import glob
+import hashlib
 import json
 import logging
 import os
@@ -103,12 +104,8 @@ def _get_git_lfs_cmd():
 
                 download_path = download_paths[0]
 
-                found_sha = (
-                    subprocess.check_output(f"sha256sum {download_path}".split())
-                    .decode("utf-8")
-                    .strip()
-                    .split(" ")[0]
-                )
+                with open(download_path, "rb") as f:
+                    found_sha = hashlib.sha256(f.read()).hexdigest()
                 expected_sha = _LFS_FILE_TO_SHA256[os.path.basename(download_path)]
 
                 assert found_sha == expected_sha, (
