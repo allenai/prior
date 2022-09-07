@@ -50,9 +50,7 @@ def _get_git_lfs_cmd():
     with LockEx(f"{BASE_DIR}/git-lfs-lock"):
         git_lfs_available = (
             subprocess.run(
-                "git lfs".split(" "),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                "git lfs", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True
             ).returncode
             == 0
         )
@@ -64,13 +62,7 @@ def _get_git_lfs_cmd():
 
         assert cur_os in ["Darwin", "Linux"], "Must be running on linux or macOS."
 
-        arch = (
-            subprocess.check_output(
-                "uname -m".split(" "),
-            )
-            .decode("utf-8")
-            .strip()
-        )
+        arch = subprocess.check_output("uname -m", shell=True).decode("utf-8").strip()
 
         assert arch in ["arm64", "x86_64"]
 
@@ -89,9 +81,10 @@ def _get_git_lfs_cmd():
             download_path: Optional[str] = None
             try:
                 subprocess.run(
-                    f"wget -O {download_url.split('/')[-1]} {download_url}".split(),
+                    f"wget -O {download_url.split('/')[-1]} {download_url}",
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
+                    shell=True,
                 )
 
                 download_paths = glob.glob("git-lfs*.zip") + glob.glob("git-lfs*.gz")
@@ -104,7 +97,7 @@ def _get_git_lfs_cmd():
                 download_path = download_paths[0]
 
                 found_sha = (
-                    subprocess.check_output(f"sha256sum {download_path}".split())
+                    subprocess.check_output(f"sha256sum {download_path}", shell=True)
                     .decode("utf-8")
                     .strip()
                     .split(" ")[0]
@@ -118,7 +111,7 @@ def _get_git_lfs_cmd():
                 )
 
                 if download_path.endswith(".tar.gz"):
-                    subprocess.check_output(f"tar xvfz {download_path}".split())
+                    subprocess.check_output(f"tar xvfz {download_path}", shell=True)
                 elif download_path.endswith(".zip"):
                     with zipfile.ZipFile(download_path, "r") as zip_ref:
                         zip_ref.extractall(BASE_DIR)
@@ -291,43 +284,35 @@ def load_dataset(
                 )
                 token_prefix = f"{token}@" if token else ""
                 subprocess.run(
-                    args=[
-                        "git",
-                        "clone",
-                        f"https://{token_prefix}github.com/{entity}/{dataset}.git",
-                        dataset_path,
-                    ],
+                    f"git clone https://{token_prefix}github.com/{entity}/{dataset}.git {dataset_path}",
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
+                    shell=True,
                 )
                 logging.debug(f"Downloaded dataset to {dataset_path}")
                 # change the subprocess working directory to the dataset directory
                 os.chdir(dataset_path)
                 subprocess.run(
-                    args=["git", "checkout", sha],
+                    f"git checkout {sha}",
                     stderr=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
+                    shell=True,
                 )
                 logging.debug(f"Checked out {sha}")
 
                 subprocess.run(
-                    args="git restore --staged .".split(),
+                    "git restore --staged .",
                     stderr=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
+                    shell=True,
                 )
 
         logging.debug(f"Using dataset {dataset} at revision {revision} in {dataset_path}.")
         os.chdir(dataset_path)
 
-        out0 = subprocess.run(
-            f"{git_lfs_cmd} install".split(),
-            stdout=subprocess.DEVNULL,
-        )
-        out1 = subprocess.run(
-            f"{git_lfs_cmd} fetch origin".split(),
-            stdout=subprocess.DEVNULL,
-        )
-        out2 = subprocess.run(f"{git_lfs_cmd} checkout".split(), stdout=subprocess.DEVNULL)
+        out0 = subprocess.run(f"{git_lfs_cmd} install", stdout=subprocess.DEVNULL, shell=True)
+        out1 = subprocess.run(f"{git_lfs_cmd} fetch origin", stdout=subprocess.DEVNULL, shell=True)
+        out2 = subprocess.run(f"{git_lfs_cmd} checkout", stdout=subprocess.DEVNULL, shell=True)
 
         assert out0.returncode == out1.returncode == out2.returncode == 0
 
@@ -395,14 +380,10 @@ def load_model(
                 old_smudge_value = os.environ.get("GIT_LFS_SKIP_SMUDGE", None)
                 os.environ["GIT_LFS_SKIP_SMUDGE"] = "1"
                 subprocess.run(
-                    args=[
-                        "git",
-                        "clone",
-                        f"https://{token_prefix}github.com/{entity}/{project}.git",
-                        models_path,
-                    ],
+                    f"git clone https://{token_prefix}github.com/{entity}/{project}.git {models_path}",
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
+                    shell=True,
                 )
                 if old_smudge_value is not None:
                     os.environ["GIT_LFS_SKIP_SMUDGE"] = old_smudge_value
@@ -411,16 +392,18 @@ def load_model(
                 # change the subprocess working directory to the dataset directory
                 os.chdir(models_path)
                 subprocess.run(
-                    args=["git", "checkout", sha],
+                    f"git checkout {sha}",
                     stderr=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
+                    shell=True,
                 )
                 logging.debug(f"Checked out {sha}")
 
                 subprocess.run(
-                    args="git restore --staged .".split(),
+                    "git restore --staged .",
                     stderr=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
+                    shell=True,
                 )
 
         logging.debug(f"Using project {project} at revision {revision} in {models_path}.")
@@ -431,16 +414,17 @@ def load_model(
             if model not in models:
                 raise ValueError(f"Model ({model}) not found in {models.keys()}")
 
-        out0 = subprocess.run(
-            f"{git_lfs_cmd} install".split(),
-            stdout=subprocess.DEVNULL,
-        )
+        out0 = subprocess.run(f"{git_lfs_cmd} install", stdout=subprocess.DEVNULL, shell=True)
         out1 = subprocess.run(
-            f"{git_lfs_cmd} fetch origin --include {models[model]}".split(),
+            f"{git_lfs_cmd} fetch origin --include {models[model]}",
             stdout=subprocess.DEVNULL,
+            shell=True,
         )
         out2 = subprocess.run(
-            f"{git_lfs_cmd} checkout".split(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            f"{git_lfs_cmd} checkout",
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            shell=True,
         )
 
         assert out0.returncode == out1.returncode == out2.returncode == 0
