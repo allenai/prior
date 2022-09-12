@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Deitke"
+    given-names: "Matt"
+    orcid: "https://orcid.org/0000-0002-2602-8656"
+  - family-names: "Aniruddha"
+    given-names: "Kembhavi"
+    orcid: "https://orcid.org/0000-0002-7608-7443"
+  - family-names: "Weihs"
+    given-names: "Luca"
+    orcid: "https://orcid.org/0000-0002-6846-6718"
+title: "PRIOR: A Python Package for Seamless Data Distribution in AI Workflows"
+version: 1.0.0
+doi: 10.5281/zenodo.7072830
+date-released: 2022-08-04
+url: "https://github.com/github/allenai/prior"
