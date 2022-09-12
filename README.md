@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/497726192.svg)](https://zenodo.org/badge/latestdoi/497726192)
 
-🐍 A Python package for distributing resources from AI2's PRIOR team
+🐍 A Python Package for Seamless Data Distribution in AI Workflows
 
 ## Installation
 
