@@ -60,3 +60,17 @@ If you want to use a private dataset, make sure you're either:
 import prior
 prior.gh_auth_token = "<token>"
 ```
+
+## Citation
+
+To cite the PRIOR package, please cite use:
+
+```bibtex
+@software{prior,
+  author={Matt Deitke and Aniruddha Kembhavi and Luca Weihs},
+  doi={10.5281/zenodo.7072830},
+  title={{PRIOR: A Python Package for Seamless Data Distribution in AI Workflows}},
+  url={https://github.com/github/allenai/prior},
+  year={2022}
+}
+```
