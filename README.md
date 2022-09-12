@@ -83,7 +83,7 @@ To cite the PRIOR package, please cite use:
   author={Matt Deitke and Aniruddha Kembhavi and Luca Weihs},
   doi={10.5281/zenodo.7072830},
   title={{PRIOR: A Python Package for Seamless Data Distribution in AI Workflows}},
-  url={https://github.com/github/allenai/prior},
+  url={https://github.com/allenai/prior},
   year={2022}
 }
 ```
