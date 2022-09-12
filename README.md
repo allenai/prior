@@ -1,8 +1,21 @@
-# PRIOR
-
-[![DOI](https://zenodo.org/badge/497726192.svg)](https://zenodo.org/badge/latestdoi/497726192)
-
-🐍 A Python Package for Seamless Data Distribution in AI Workflows
+<h1 align="center">
+  🐍 PRIOR
+</h1>
+<h3 align="center"><em>A Python Package for Seamless Data Distribution in AI Workflows</em></h3>
+<div align="center">
+  <a href="https://zenodo.org/badge/latestdoi/497726192">
+    <img src="https://zenodo.org/badge/497726192.svg" alt="DOI" />
+  </a>
+  <a href="//github.com/allenai/prior/blob/main/LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/allenai/prior.svg?color=blue">
+  </a>
+  <a href="//github.com/allenai/prior/releases">
+    <img alt="GitHub release" src="https://img.shields.io/github/release/allenai/prior.svg">
+  </a>
+  <a href="//pepy.tech/project/prior" target="_blank">
+    <img alt="Downloads" src="https://pepy.tech/badge/prior">
+  </a>
+</div>
 
 ## Installation
 
