@@ -348,7 +348,7 @@ def load_dataset(
                     assert out2.returncode == 0
                     commands_run.append(" ".join(args))
 
-                except AssertionError:
+                except Exception:
                     if os.path.exists(dataset_path):
                         shutil.rmtree(dataset_path)
 
