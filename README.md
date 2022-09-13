@@ -84,7 +84,7 @@ prior.gh_auth_token = "<token>"
 
 ## Citation
 
-To cite the PRIOR package, please cite use:
+To cite the PRIOR package, please use:
 
 ```bibtex
 @software{prior,
