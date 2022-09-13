@@ -1,7 +1,13 @@
 <h1 align="center">
   🐍 PRIOR
 </h1>
+
+
 <h3 align="center"><em>A Python Package for Seamless Data Distribution in AI Workflows</em></h3>
+
+![DALL·E 2022-09-12 18 02 32 - A friendly green snake typing on a computer on the floor](https://user-images.githubusercontent.com/28768645/189784788-22986a02-d56e-4937-8c8e-e58685e8b72d.png)
+
+
 <div align="center">
   <a href="https://zenodo.org/badge/latestdoi/497726192">
     <img src="https://zenodo.org/badge/497726192.svg" alt="DOI" />
@@ -16,6 +22,8 @@
     <img alt="Downloads" src="https://pepy.tech/badge/prior">
   </a>
 </div>
+
+
 
 ## Installation
 
