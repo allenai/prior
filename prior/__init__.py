@@ -349,11 +349,8 @@ def load_dataset(
                     commands_run.append(" ".join(args))
 
                 except Exception:
-                    if os.path.exists(dataset_path):
-                        shutil.rmtree(dataset_path)
-
                     commands_run = "\n".join(commands_run)
-                    raise IOError(
+                    error_msg = (
                         "An error occurred when cloning or checking out "
                         f" https://{token_prefix}github.com/{entity}/{dataset}.git. We're"
                         f" deleting anything downloaded to {dataset_path}."
@@ -363,6 +360,10 @@ def load_dataset(
                         f" we ran the following commands:"
                         f"\n```\n{commands_run}\n```"
                     )
+                    if os.path.exists(dataset_path):
+                        shutil.rmtree(dataset_path)
+
+                    raise IOError(error_msg)
 
         logging.debug(f"Using dataset {dataset} at revision {revision} in {dataset_path}.")
         os.chdir(dataset_path)
