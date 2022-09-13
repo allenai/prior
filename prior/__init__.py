@@ -13,7 +13,6 @@ import requests
 from github import Github, GithubException
 
 from prior.lock import LockEx
-
 # NOTE: These are unused in this file, but imported to other files.
 # So, leave them here.
 from prior.utils.types import Dataset, DatasetDict, LazyJsonDataset
@@ -132,6 +131,22 @@ def _get_git_lfs_cmd():
                 os.chdir(cwd)
 
         return git_lfs_path
+
+
+def _project_dir_to_loading_functions(project_dir: str) -> Dict[str, Any]:
+    config_path = os.path.join(project_dir, ".prior-config.json")
+
+    config = {}
+    if os.path.exists(config_path):
+        with open(config_path, "r") as f:
+            config = json.load(f)
+
+    path = config.get("path_to_definitions", f"{project_dir}/main.py")
+
+    out: Dict[str, Any] = {}
+    exec(open(path).read(), out)
+
+    return out
 
 
 def _clone_repo(
@@ -328,8 +343,7 @@ def load_dataset(
 
         assert out0.returncode == out1.returncode == out2.returncode == 0
 
-        out: Dict[str, Any] = {}
-        exec(open(f"{dataset_path}/main.py").read(), out)
+        out = _project_dir_to_loading_functions(dataset_path)
         out_dataset: DatasetDict = out["load_dataset"](**kwargs)
         os.chdir(start_dir)
     finally:
@@ -442,8 +456,7 @@ def load_model(
 
         assert out0.returncode == out1.returncode == out2.returncode == 0
 
-        out: Dict[str, Any] = {}
-        exec(open(f"{models_path}/main.py").read(), out)
+        out = _project_dir_to_loading_functions(models_path)
         model_path: str = out["load_model"](model=model, **kwargs)
         os.chdir(start_dir)
     finally:
