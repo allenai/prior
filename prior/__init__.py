@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import platform
+import shutil
 import stat
 import subprocess
 import zipfile
@@ -134,9 +135,40 @@ def _get_git_lfs_cmd():
         return git_lfs_path
 
 
-def _clone_repo(
+def _get_git_auth_token() -> Optional[str]:
+    if gh_auth_token is not None:
+        # Treats gh_auth_token as a string
+        return gh_auth_token.strip()  # type: ignore
+    elif os.environ.get("GITHUB_TOKEN") is not None:
+        return os.environ["GITHUB_TOKEN"].strip()
+    else:
+        # look at ~/.git-credentials
+        git_credentials_path = f"{os.environ['HOME']}/.git-credentials"
+        token = None
+        if os.path.exists(git_credentials_path):
+            with open(git_credentials_path, "r") as f:
+                tokens = f.read()
+
+            try:
+                token = next(token for token in tokens.split("\n") if token.endswith("github.com"))
+                token = token.split(":")[2]
+                token = token.split("@")[0]
+            except StopIteration:
+                logging.warning(
+                    "No github token found, attempting to use unauthenticated request to GitHub."
+                    " If you're using a private repo or have exceeded the API limit, please"
+                    " add your GitHub token as an environment variable (`export GITHUB_TOKEN=YOUR_TOKEN`),"
+                    " pass your token to this function with `gh_auth_token=YOUR_TOKEN`, or"
+                    " add your token to a new line in your git credentials file (`~/.git-credentials`). "
+                    " See https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token"
+                    " for information on how to generate a GitHub token."
+                )
+        return token
+
+
+def _get_sha_of_project_revision(
     base_dir: str, entity: str, project: str, revision: str, offline: bool
-) -> Tuple[str, str]:
+) -> str:
     def get_cached_sha(project_dir: str) -> Optional[str]:
         if os.path.exists(f"{project_dir}/cache"):
             with LockEx(f"{project_dir}/cache-lock"):
@@ -151,7 +183,6 @@ def _clone_repo(
 
     sha: str
     cached_sha: Optional[str]
-    token: str = ""
 
     if os.path.exists(f"{project_dir}/{revision}"):
         # If the dataset is already downloaded, use the cached sha.
@@ -163,8 +194,8 @@ def _clone_repo(
         cached_sha = get_cached_sha(project_dir=project_dir)
         if cached_sha is None or not os.path.isdir(f"{project_dir}/{cached_sha}"):
             raise ValueError(
-                f"Offline project {project} is not downloaded "
-                f"for revision {revision}. "
+                f"Offline project {project} is not downloaded"
+                f" for revision {revision}. "
                 f" cached_sha={cached_sha}, project_dir={project_dir}"
             )
         sha = cached_sha
@@ -176,11 +207,8 @@ def _clone_repo(
         logging.debug(f"Getting status code {res.status_code} for {revision}")
         if res.status_code == 404 or res.status_code == 403:
             # Try using private repo.
-            if (
-                not os.path.exists(f"{os.environ['HOME']}/.git-credentials")
-                and gh_auth_token is None
-                and "GITHUB_TOKEN" not in os.environ
-            ):
+            token = _get_git_auth_token()
+            if token is None:
                 # try using cache
                 cached_sha = None
                 if res.status_code == 403:
@@ -199,20 +227,7 @@ def _clone_repo(
                         "from the command line."
                     )
 
-            if gh_auth_token is not None:
-                # Treats gh_auth_token as a string
-                token = gh_auth_token.strip()  # type: ignore
-            elif os.environ.get("GITHUB_TOKEN") is not None:
-                token = os.environ["GITHUB_TOKEN"].strip()
-            else:
-                # look at ~/.git-credentials
-                with open(f"{os.environ['HOME']}/.git-credentials", "r") as f:
-                    tokens = f.read()
-                token = next(token for token in tokens.split("\n") if token.endswith("github.com"))
-                token = token.split(":")[2]
-                token = token.split("@")[0]
-
-            g = Github(token)
+            g = Github(login_or_token=token)
             repo = g.get_repo(f"{entity}/{project}")
 
             # if revision is a commit_id, branch, or tag use it
@@ -238,7 +253,7 @@ def _clone_repo(
                 cache[revision] = sha
                 json.dump(cache, f)
 
-    return sha, token
+    return sha
 
 
 def load_dataset(
@@ -266,12 +281,16 @@ def load_dataset(
 
     start_dir = os.getcwd()
     project_dir = os.path.join(DATASET_DIR, entity, dataset)
-    sha, token = _clone_repo(
+    os.makedirs(project_dir, exist_ok=True)
+
+    sha = _get_sha_of_project_revision(
         base_dir=DATASET_DIR, entity=entity, project=dataset, revision=revision, offline=offline
     )
 
     git_lfs_cmd = _get_git_lfs_cmd()
+    token = _get_git_auth_token()
     oldpath = os.environ["PATH"]
+
     try:
         # The below PATH setting needs to happen before running any git commands as otherwise git
         # will not see the git-lfs download which causes all sorts of weird issues.
@@ -280,53 +299,99 @@ def load_dataset(
             os.environ["PATH"] = f'{os.environ["PATH"]}:{os.path.dirname(git_lfs_cmd)}'
 
         # download the dataset
-        dataset_path = f"{project_dir}/{sha}"
-        if not os.path.exists(dataset_path):
-            with LockEx(f"{project_dir}/lock"):
-                logging.debug(
-                    f"Downloading dataset {dataset} at revision {revision} to {dataset_path}."
-                )
-                token_prefix = f"{token}@" if token else ""
-                subprocess.run(
-                    args=[
+        dataset_path = os.path.abspath(f"{project_dir}/{sha}")
+        with LockEx(f"{project_dir}/lock-clone"):
+            if not os.path.exists(dataset_path):
+                commands_run = []
+                try:
+                    logging.debug(
+                        f"Downloading dataset {dataset} at revision {revision} to {dataset_path}."
+                    )
+                    token_prefix = f"{token}@" if token else ""
+
+                    args = [
                         "git",
                         "clone",
                         f"https://{token_prefix}github.com/{entity}/{dataset}.git",
                         dataset_path,
-                    ],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                logging.debug(f"Downloaded dataset to {dataset_path}")
-                # change the subprocess working directory to the dataset directory
-                os.chdir(dataset_path)
-                subprocess.run(
-                    args=["git", "checkout", sha],
-                    stderr=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                )
-                logging.debug(f"Checked out {sha}")
+                    ]
+                    out0 = subprocess.run(
+                        args=args,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    assert out0.returncode == 0
+                    commands_run.append(" ".join(args))
 
-                subprocess.run(
-                    args="git restore --staged .".split(),
-                    stderr=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                )
+                    logging.debug(f"Downloaded dataset to {dataset_path}")
+                    # change the subprocess working directory to the dataset directory
+                    os.chdir(dataset_path)
+                    commands_run.append(f"cd {dataset_path}")
+
+                    args = ["git", "checkout", sha]
+                    out1 = subprocess.run(
+                        args=args,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    assert out1.returncode == 0
+                    commands_run.append(" ".join(args))
+
+                    logging.debug(f"Checked out {sha}")
+
+                    args = "git restore --staged .".split()
+                    out2 = subprocess.run(
+                        args=args,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    assert out2.returncode == 0
+                    commands_run.append(" ".join(args))
+
+                except AssertionError:
+                    if os.path.exists(dataset_path):
+                        shutil.rmtree(dataset_path)
+
+                    commands_run = "\n".join(commands_run)
+                    raise IOError(
+                        "An error occurred when cloning or checking out "
+                        f" https://{token_prefix}github.com/{entity}/{dataset}.git. We're"
+                        f" deleting anything downloaded to {dataset_path}."
+                        f" Current PATH is {os.environ['PATH']},"
+                        f" current directory is {os.getcwd()}, and"
+                        f" the command that failed is '{' '.join(args)}'. Before this point"
+                        f" we ran the following commands:"
+                        f"\n```\n{commands_run}\n```"
+                    )
 
         logging.debug(f"Using dataset {dataset} at revision {revision} in {dataset_path}.")
         os.chdir(dataset_path)
 
-        out0 = subprocess.run(
-            f"{git_lfs_cmd} install".split(),
-            stdout=subprocess.DEVNULL,
-        )
-        out1 = subprocess.run(
-            f"{git_lfs_cmd} fetch origin".split(),
-            stdout=subprocess.DEVNULL,
-        )
-        out2 = subprocess.run(f"{git_lfs_cmd} checkout".split(), stdout=subprocess.DEVNULL)
+        with LockEx(f"{project_dir}/lock-verify"):
+            sha_of_repo = (
+                subprocess.check_output(
+                    "git rev-parse --verify HEAD".split(),
+                )
+                .decode("utf-8")
+                .strip()
+            )
+            assert sha_of_repo == sha, (
+                f"The sha of the repo ({sha_of_repo}) does not match the required sha ({sha})."
+                f" This should not occur. Please try deleting {dataset_path} and trying again."
+            )
 
-        assert out0.returncode == out1.returncode == out2.returncode == 0
+            # HARD RESET of all modified or changed
+            if (
+                subprocess.check_output(
+                    "git status --short".split(),
+                )
+                .decode("utf-8")
+                .strip()
+                != ""
+            ):
+                out1 = subprocess.run("git reset --hard HEAD".split(), stdout=subprocess.DEVNULL)
+                out2 = subprocess.run("git clean -f".split(), stdout=subprocess.DEVNULL)
+                assert out1.returncode == out2.returncode == 0
 
         out: Dict[str, Any] = {}
         exec(open(f"{dataset_path}/main.py").read(), out)
@@ -366,7 +431,7 @@ def load_model(
 
     start_dir = os.getcwd()
     project_dir = os.path.join(MODEL_DIR, entity, project)
-    sha, token = _clone_repo(
+    sha, token = _get_sha_of_project_revision(
         base_dir=MODEL_DIR, entity=entity, project=project, revision=revision, offline=offline
     )
 
