@@ -337,6 +337,33 @@ def load_dataset(
                     assert out1.returncode == 0
                     commands_run.append(" ".join(args))
 
+                    args = ["git", "lfs", "install"]
+                    out2 = subprocess.run(
+                        args=args,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    assert out2.returncode == 0
+                    commands_run.append(" ".join(args))
+
+                    args = ["git", "lfs", "fetch"]
+                    out3 = subprocess.run(
+                        args=args,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    assert out3.returncode == 0
+                    commands_run.append(" ".join(args))
+
+                    args = ["git", "lfs", "checkout", sha]
+                    out4 = subprocess.run(
+                        args=args,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    assert out4.returncode == 0
+                    commands_run.append(" ".join(args))
+
                     logging.debug(f"Checked out {sha}")
 
                 except Exception:
