@@ -339,15 +339,6 @@ def load_dataset(
 
                     logging.debug(f"Checked out {sha}")
 
-                    args = "git restore --staged .".split()
-                    out2 = subprocess.run(
-                        args=args,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                    assert out2.returncode == 0
-                    commands_run.append(" ".join(args))
-
                 except Exception:
                     commands_run = "\n".join(commands_run)
                     error_msg = (
