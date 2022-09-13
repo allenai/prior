@@ -160,7 +160,8 @@ def _get_git_auth_token() -> Optional[str]:
                     " add your GitHub token as an environment variable (`export GITHUB_TOKEN=YOUR_TOKEN`),"
                     " pass your token to this function with `gh_auth_token=YOUR_TOKEN`, or"
                     " add your token to a new line in your git credentials file (`~/.git-credentials`). "
-                    " See https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token"
+                    " See https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/"
+                    "creating-a-personal-access-token"
                     " for information on how to generate a GitHub token."
                 )
         return token
@@ -367,7 +368,7 @@ def load_dataset(
                     logging.debug(f"Checked out {sha}")
 
                 except Exception:
-                    commands_run = "\n".join(commands_run)
+                    commands_run_str = "\n".join(commands_run)
                     error_msg = (
                         "An error occurred when cloning or checking out "
                         f" https://{token_prefix}github.com/{entity}/{dataset}.git. We're"
@@ -376,7 +377,7 @@ def load_dataset(
                         f" current directory is {os.getcwd()}, and"
                         f" the command that failed is '{' '.join(args)}'. Before this point"
                         f" we ran the following commands:"
-                        f"\n```\n{commands_run}\n```"
+                        f"\n```\n{commands_run_str}\n```"
                     )
                     if os.path.exists(dataset_path):
                         shutil.rmtree(dataset_path)
@@ -450,7 +451,8 @@ def load_model(
 
     start_dir = os.getcwd()
     project_dir = os.path.join(MODEL_DIR, entity, project)
-    sha, token = _get_sha_of_project_revision(
+    token = _get_git_auth_token()
+    sha = _get_sha_of_project_revision(
         base_dir=MODEL_DIR, entity=entity, project=project, revision=revision, offline=offline
     )
 
