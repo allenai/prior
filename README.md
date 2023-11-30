@@ -33,6 +33,8 @@ Install the `prior` package with pip:
 pip install prior
 ```
 
+You'll also need [git](https://git-scm.com/) and the [git-lfs](https://git-lfs.com/) extension installed.
+
 ## Datasets
 
 - ProcTHOR-10k [[GitHub]](https://github.com/allenai/procthor-10k)
